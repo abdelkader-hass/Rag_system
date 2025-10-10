@@ -68,7 +68,7 @@ class SimpleGraphHandler:
             return None
 
 
-    def add_sentence_to_parent(self, parent_id=None,parent_name=None, sentence="",ordre="",title="",description="",file_name=""):
+    def add_sentence_to_parent(self, parent_id=None,parent_name=None, sentence="",ordre="",title="",description="",file_name="",embedding=None):
         if not parent_id:
             return ''
         if not self.driver:
@@ -100,10 +100,12 @@ class SimpleGraphHandler:
         """
 
         try:
-            title_embedding=self.emb_model.generate_embeddings([sentence])
+            if embedding:
+                title_embedding=embedding
+            else:
+                title_embedding=self.emb_model.generate_embeddings([sentence])
         except Exception as e:
             print('error embedding chunk', str(e))
-        print("len embedding",len(title_embedding))
         parameters = {"parent_id": parent_id,"parent_name":parent_name, "child_id": child_id, "sentence": sentence,"embedding":title_embedding,"len_embedding":len(title_embedding),"ordre":ordre,"title":title,"description":description,"file_name":file_name}
 
         try:
@@ -119,7 +121,7 @@ class SimpleGraphHandler:
                 # No parent found, convert node to Parent and add child
                 self.session.run(query_convert_and_create_child, parameters)
                 # print(f"Node converted to parent and sentence added with ID: {parent_id}")
-            return child_id
+            return child_id,title_embedding
         except Exception as e:
             print(f"Error adding child node: {e}")
 
@@ -208,11 +210,9 @@ class SimpleGraphHandler:
         try:
             # Initialize the wrapped embedder
             embedder = self.emb_model
-            print(query)
             # Get embedding dimensions
             sample_embedding = embedder.embed_query("test")
             embedding_dim = len(sample_embedding)
-            print("actual dim",embedding_dim)
             # Create vector index with correct dimensions
             try:
                 create_vector_index(

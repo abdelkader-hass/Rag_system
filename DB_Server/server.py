@@ -10,7 +10,7 @@ from components.local_embeder import LocalEmbModel
 from components.static_var import DOCUMENT_PATH,FEEDBACK_PATH,JSON_UIDS_PATH
 from components.data_processing import split_text_smart
 import json
-
+from components.LLM import classify_text_with_bedrock
 
 appp = Flask(__name__)
 
@@ -53,8 +53,10 @@ def add_file():
     use_md = request.form.get('use_md',"True") 
     chunk_length= request.form.get('chunk_length',"1000") 
     extract_image= request.form.get('extract_image',"True")
-    categories=request.form.get('categories',"").split(",")
-    
+    try:
+        categories_received=request.form.get('categories').split(",")
+    except:
+        categories_received=[]
     device=request.form.get('device',None)
 
     filename=file.filename
@@ -67,10 +69,10 @@ def add_file():
 
         if device not in nodes_uids["root"]["nodes_uids"]:
             # Now create file node :
-            Device_id=Graphhandler.add_sentence_to_parent(root_id,"root",device,"0",device,device,device)
+            Device_id,_=Graphhandler.add_sentence_to_parent(root_id,"root",device,"0",device,device,device)
             nodes_uids["root"]["nodes_uids"]={device:{"id":Device_id,"categories":{}}}
         else:
-            Device_id=nodes_uids["root"]["nodes_uids"][device]['id']
+            Device_id,_=nodes_uids["root"]["nodes_uids"][device]['id']
         try:
             
             filename = secure_filename(file.filename)
@@ -81,24 +83,90 @@ def add_file():
                 f.write(file.getbuffer())
             print("error" , str(e))
             pass 
-        categories=categories+["ALL","Q&A"]
+        categories=categories_received+["ALL","Q&A"]
         for cat in categories:
             if cat not in nodes_uids["root"]["nodes_uids"][device]['categories']:
                 # Now create file node :
-                Cat_id=Graphhandler.add_sentence_to_parent(Device_id,"root!-!"+device,cat,"0",cat,cat,cat)
+                Cat_id,_=Graphhandler.add_sentence_to_parent(Device_id,"root!-!"+device,cat,"0",cat,cat,cat)
 
                 nodes_uids["root"]["nodes_uids"][device]["categories"][cat]=Cat_id
 
         categories_ids=nodes_uids["root"]["nodes_uids"][device]["categories"]
-        print(categories_ids)
+        print(categories_received,categories_ids)
         with open(JSON_UIDS_PATH, "w", encoding="utf-8") as f:
             json.dump(nodes_uids, f, indent=4)
         # --------------read file in md format--------------
         # is_Md,titles,data=read_file(filename,DOCUMENT_PATH,use_md)
         #add categories&Equipements get it from request
 
-        # Device_id=Graphhandler.add_sentence_to_parent(root_id,device,"0",device,device,device)
-        # chunks=read_file(filename,DOCUMENT_PATH,use_md)
+        chunks=read_file(filename,DOCUMENT_PATH,use_md)
+
+        previous_cat_id=None
+        previous_cat_name=None
+        previous_reason=None    
+        cpt=0
+        cpt1=0
+        for chunk in chunks:
+            cpt1+=1
+            chunk_id=chunk["chunk_id"]
+            print("treatment",chunk_id)
+            doc_name=chunk["doc_name"]
+            titles=chunk["titles"]
+            text=chunk["text"]
+            is_has_other_part=chunk["is_has_other_part"]
+            chunk_node_id_,embedding=Graphhandler.add_sentence_to_parent(parent_id=categories_ids['ALL'],parent_name=f"root!-!{device}!-!ALL"
+                                                          ,sentence=text,ordre=str(chunk_id),title=titles,file_name=doc_name)
+            
+            if categories_received:
+
+                if is_has_other_part :
+                    if previous_cat_id :
+                        print("use previous",chunk_id,previous_cat_id)
+                        category_id=previous_cat_id
+                        category_name=previous_cat_name
+                        reason=previous_reason
+                        previous_cat_id=None
+                        previous_cat_name=None
+                        previous_reason=None
+                    else:
+                        result_json=classify_text_with_bedrock(text,str(categories_ids))
+                        category_id=result_json["category_id"]
+                        category_name=result_json["category_name"]
+                        reason=result_json["reason"]
+
+                        if categories_ids.get(category_name,None):
+                            previous_cat_id=categories_ids[category_name]
+                            previous_cat_name=category_name
+                            previous_reason=reason
+                            category_id=categories_ids[category_name]
+                        else:
+                            print("Error chunk",chunk_id)
+                            continue
+                else:
+                    if previous_cat_id:
+                        print("use previous",chunk_id,previous_cat_id)
+                        category_id=previous_cat_id
+                        category_name=previous_cat_name
+                        reason=previous_reason
+                        previous_cat_id=None
+                        previous_cat_name=None
+                        previous_reason=None
+                    else:
+                        result_json=classify_text_with_bedrock(text,str(categories_ids))
+                        category_id=result_json["category_id"]
+                        category_name=result_json["category_name"]
+                        reason=result_json["reason"]
+                        if categories_ids.get(category_name,None):
+                            category_id=categories_ids[category_name]
+                        else:
+                            print("Error chunk",chunk_id)
+                            continue
+
+                    chunk_node_id,_=Graphhandler.add_sentence_to_parent(parent_id=category_id,parent_name=f"root!-!{device}!-!{category_name}"
+                                                    ,sentence=text,ordre=str(chunk_id),title=titles,file_name=doc_name,description=str(reason),embedding=embedding)
+                    cpt+=1
+        print("treated",cpt,"viewed",cpt1)
+        #so use categories
         # print(chunks)
 
         message= "Success"

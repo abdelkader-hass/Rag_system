@@ -43,6 +43,7 @@ with col2:
         options=["EL200", "C500"],
         index=0
     )
+    use_categories=st.toggle("Use categories")
 
 chunk_length = st.number_input("Chunk Length (words)", min_value=100, max_value=5000, value=1000, step=100)
 
@@ -58,9 +59,11 @@ if st.button("🚀 Upload and Process"):
                 "use_md": use_md,
                 "chunk_length": str(chunk_length),
                 "device":str(device),
-                "categories":"general information,installation,Troubleshooting,update"
+                
             }
-
+            if use_categories:
+                data['categories']="general information,installation,Troubleshooting,update"
+            
             with st.spinner("Uploading file and waiting for response..."):
                 response = requests.post(API_URL, files=files, data=data)
 
@@ -110,8 +113,8 @@ if st.button("🚀 Send Request"):
                 "question": question,
                 "type_search": type_search,
                 "Node_id": Node_id,
-
             }
+
             if use_device:
                 data["device"]=device
             with st.spinner("Contacting Flask API..."):
