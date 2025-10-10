@@ -12,3 +12,5 @@ os.environ["AWS_REGION_NAME"] = ""
 if __name__=="__main__":
     flask_server=FlaskdbServercls("twi")
     flask_server.start()
+
+

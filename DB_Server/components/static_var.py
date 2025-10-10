@@ -14,7 +14,7 @@ EMB_DEVICE="cpu"
 DB_URL="./vol/dbs"
 FEEDBACK_PATH="./vol/feedbackall.csv"
 
-
+JSON_UIDS_PATH="./vol/uids_nodes.json"
 if not os.path.exists(DB_URL):
 # Create the directory
     os.makedirs(DB_URL,exist_ok=True)
@@ -23,9 +23,9 @@ if not os.path.exists(EMB_MODEL_PATH):
 # Create the directory
     os.makedirs(EMB_MODEL_PATH,exist_ok=True)
 
-if not os.path.exists(DOCUMENT_PATH):
+if not os.path.exists(IMAGES_PATH):
 # Create the directory
-    os.makedirs(DOCUMENT_PATH,exist_ok=True) 
+    os.makedirs(IMAGES_PATH,exist_ok=True) 
 
 
 

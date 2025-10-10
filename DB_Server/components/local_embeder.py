@@ -2,8 +2,8 @@
 from .static_var import EMB_MODEL_PATH,FEMB_MODEL_PATH,EMB_DEVICE
 import os
 import numpy as np
-
-
+import boto3
+import json
 
 try:
     from sentence_transformers import SentenceTransformer
@@ -58,7 +58,6 @@ class LocalEmbModel:
         os.environ['HF_DATASETS_OFFLINE'] = '1'
         os.environ['HF_HUB_OFFLINE'] = '1'
         print("Environment configured for offline use")
-
 
     def get_local_model(self):
         """Load SentenceTransformer model locally"""
@@ -122,23 +121,54 @@ class LocalEmbModel:
 
     def generate_embeddings(self,texts):
         """Generate embeddings using local model or fallback method"""
-        model = self.model
+        try:
+            sentence=texts[0]
+            print("aws embedding")
+            embedding_model="amazon.titan-embed-text-v1"
+            aws_region="us-east-1"
+            # Prepare the request body based on the embedding model
+            if 'titan-embed' in embedding_model:
+                body = {
+                    "inputText": sentence
+                }
+                bedrock_client = boto3.client(
+                    service_name='bedrock-runtime',
+                    region_name=aws_region
+                )
+            # Make the API call
+            response = bedrock_client.invoke_model(
+                modelId=embedding_model,
+                body=json.dumps(body),
+                contentType='application/json',
+                accept='application/json'
+            )
+            
+            # Parse response
+            response_body = json.loads(response['body'].read())
+            
+            # Extract embedding based on model
+            if 'titan-embed' in embedding_model:
+                title_embedding = response_body.get('embedding', [])
+            # title_embedding=title_embedding.tolist()
+            return title_embedding
         
-        if model is not None:
-            try:
-                # print("Generating model embeddings...")
-                return model.encode(texts, show_progress_bar=False)
-            except Exception as e:
-                print(f"Error generating embeddings with model: {e}")
-                print("Using fallback embedding method...")
-        
-        # Fallback to simple embeddings
-        # print("Generating simple embeddings...")
-        embeddings = []
-        for text in texts:
-            embeddings.append(self.simple_embedding(text))
-        
-        return np.array(embeddings)
+        except Exception as e:
+            print("local embedding" ,str(e))
+            # Fallback to simple embeddings
+            embeddings = []
+            # for text in texts:
+            #     embeddings.append(self.simple_embedding(text))
+
+            title_embedding = title_embedding=self.model.encode(sentence)
+            target_length = 1536
+            title_embedding=title_embedding.tolist()
+
+            # Calculate how many zeros you need to add
+            missing = target_length - len(title_embedding)
+            if missing > 0:
+                title_embedding.extend([0] * missing)
+
+            return title_embedding
 
     def setup(self):
         """Main setup function"""
@@ -155,11 +185,53 @@ class LocalEmbModel:
                 self.setup_offline_environment()
                 # self.get_local_model()
 
-
     
     def embed_query(self, text):
-        """Required method for neo4j-graphrag compatibility"""
-        return self.model.encode(text).tolist()
+        try:
+            embedding_model="amazon.titan-embed-text-v1"
+            aws_region="us-east-1"
+            # Prepare the request body based on the embedding model
+            if 'titan-embed' in embedding_model:
+                body = {
+                    "inputText": text
+                }
+                bedrock_client = boto3.client(
+                    service_name='bedrock-runtime',
+                    region_name=aws_region
+                )
+            # Make the API call
+            response = bedrock_client.invoke_model(
+                modelId=embedding_model,
+                body=json.dumps(body),
+                contentType='application/json',
+                accept='application/json'
+            )
+            
+            # Parse response
+            response_body = json.loads(response['body'].read())
+            
+            # Extract embedding based on model
+            if 'titan-embed' in embedding_model:
+                title_embedding = response_body.get('embedding', [])
+                print("query embedding len0 ",len(title_embedding))
+
+                return title_embedding
+            
+            else:
+                raise 
+        except Exception as e:
+            print("Error embedding query go with local ",str(e) )
+            title_embedding=self.model.encode(text).tolist()
+            target_length = 1536
+
+            # Calculate how many zeros you need to add
+            missing = target_length - len(title_embedding)
+            if missing > 0:
+                title_embedding.extend([0] * missing)
+            print("query embedding len1 ",len(title_embedding))
+
+            return title_embedding
+
     
     def embed_documents(self, texts):
         """Optional method for batch processing"""
@@ -167,14 +239,44 @@ class LocalEmbModel:
 
 
 
-class LocalEmbModelSearch:
-    def __init__(self, model_name='all-MiniLM-L6-v2'):
-        self.model = SentenceTransformer(model_name)
+# class LocalEmbModelSearch:
+#     def __init__(self, model_name='all-MiniLM-L6-v2'):
+#         self.model = SentenceTransformer(model_name)
     
-    def embed_query(self, text):
-        """Required method for neo4j-graphrag compatibility"""
-        return self.model.encode(text).tolist()
+#     def embed_query(self, text):
+#         try:
+#             embedding_model="amazon.titan-embed-text-v1"
+#             aws_region="us-east-1"
+#             # Prepare the request body based on the embedding model
+#             if 'titan-embed' in embedding_model:
+#                 body = {
+#                     "inputText": text
+#                 }
+#                 bedrock_client = boto3.client(
+#                     service_name='bedrock-runtime',
+#                     region_name=aws_region
+#                 )
+#             # Make the API call
+#             response = bedrock_client.invoke_model(
+#                 modelId=embedding_model,
+#                 body=json.dumps(body),
+#                 contentType='application/json',
+#                 accept='application/json'
+#             )
+            
+#             # Parse response
+#             response_body = json.loads(response['body'].read())
+            
+#             # Extract embedding based on model
+#             if 'titan-embed' in embedding_model:
+#                 title_embedding = response_body.get('embedding', [])
+#                 return title_embedding
+#             else:
+#                 raise 
+#         except Exception as e:
+#             print("Error embedding query")
+#             return self.model.encode(text).tolist()
     
-    def embed_documents(self, texts):
-        """Optional method for batch processing"""
-        return [self.model.encode(text).tolist() for text in texts]
+#     def embed_documents(self, texts):
+#         """Optional method for batch processing"""
+#         return [self.model.encode(text).tolist() for text in texts]

@@ -7,9 +7,9 @@ from components.Neo4jConnector import Neo4jConnector
 from components.Graph import SimpleGraphHandler
 from components.data_processing import read_file
 from components.local_embeder import LocalEmbModel
-from components.static_var import DOCUMENT_PATH,FEEDBACK_PATH
+from components.static_var import DOCUMENT_PATH,FEEDBACK_PATH,JSON_UIDS_PATH
 from components.data_processing import split_text_smart
-
+import json
 
 
 appp = Flask(__name__)
@@ -37,7 +37,12 @@ def add_file():
         message="No file "
         return Response(message, content_type='text/plain')
     file = request.files['file']
-    
+
+    if os.path.exists(JSON_UIDS_PATH):
+        with open(JSON_UIDS_PATH, "r", encoding="utf-8") as f:
+            nodes_uids = json.load(f)
+    else:
+        nodes_uids = {"root": {"nodes_uids":{}}}
     #node root "ROOT"
     root_id="ROOT-001-124"
     # Node_id = request.form.get('Node_id') or "all analysers"
@@ -47,6 +52,10 @@ def add_file():
     split_type = request.form.get('split_type',"smart")   #smart , standard fix chunks 500 words and add all to same node simple_split
     use_md = request.form.get('use_md',"True") 
     chunk_length= request.form.get('chunk_length',"1000") 
+    extract_image= request.form.get('extract_image',"True")
+    categories=request.form.get('categories',"").split(",")
+    
+    device=request.form.get('device',None)
 
     filename=file.filename
     
@@ -56,12 +65,14 @@ def add_file():
         if not is_exist:
             Graphhandler.create_parent_node(root_id,"ROOT")
 
-        # Now create file node :
-        Node_id=Graphhandler.add_sentence_to_parent(root_id,filename,"0",filename,filename,filename)
-
-
+        if device not in nodes_uids["root"]["nodes_uids"]:
+            # Now create file node :
+            Device_id=Graphhandler.add_sentence_to_parent(root_id,"root",device,"0",device,device,device)
+            nodes_uids["root"]["nodes_uids"]={device:{"id":Device_id,"categories":{}}}
+        else:
+            Device_id=nodes_uids["root"]["nodes_uids"][device]['id']
         try:
-
+            
             filename = secure_filename(file.filename)
             file.save(os.path.join(DOCUMENT_PATH, filename))
 
@@ -70,53 +81,25 @@ def add_file():
                 f.write(file.getbuffer())
             print("error" , str(e))
             pass 
+        categories=categories+["ALL","Q&A"]
+        for cat in categories:
+            if cat not in nodes_uids["root"]["nodes_uids"][device]['categories']:
+                # Now create file node :
+                Cat_id=Graphhandler.add_sentence_to_parent(Device_id,"root!-!"+device,cat,"0",cat,cat,cat)
 
+                nodes_uids["root"]["nodes_uids"][device]["categories"][cat]=Cat_id
 
+        categories_ids=nodes_uids["root"]["nodes_uids"][device]["categories"]
+        print(categories_ids)
+        with open(JSON_UIDS_PATH, "w", encoding="utf-8") as f:
+            json.dump(nodes_uids, f, indent=4)
         # --------------read file in md format--------------
-        is_Md,titles,data=read_file(filename,DOCUMENT_PATH)
-        print(titles)
-        if split_type=="smart":
-            print("use split type ",split_type)
-            print("use use_md",use_md)
-            
-            if is_Md and use_md=="True":
-                #add from md format
-                try:
-                    Graphhandler.add_md_data(start_child=Node_id,tree=data,file_name=filename)
-                except Exception as e:
-                    print("Error adding md tree",str(e))
-            # --------------read file pdf not MD format--------------
-            else:
-                #add from text
-                chunck_max=int(chunk_length)
-                chunks = split_text_smart(data, max_chunk_size=chunck_max, overlap=50)
-                print("-----------all chunks---------",len(chunks))
-                for id_, text in enumerate(chunks, 1):
-                    print("------------chunk-----------",id_)
-                    Graphhandler.add_txt_data(text,filename,Cat_id=Node_id)
+        # is_Md,titles,data=read_file(filename,DOCUMENT_PATH,use_md)
+        #add categories&Equipements get it from request
 
-
-        elif split_type=="standard":
-            print("use split type ",split_type)
-            print("use use_md",use_md)
-
-            if is_Md and use_md=="True":
-                #add from md format
-                Graphhandler.add_md_data(start_child=Node_id,tree=data,file_name=filename)
-            # --------------read file pdf not MD format--------------
-            else:
-                #add from md format
-                # Graphhandler.add_txt_data(data,filename,Cat_id=Node_id)
-                chunck_max=int(chunk_length)
-                chunks = split_text_smart(data, max_chunk_size=chunck_max, overlap=50)
-                print("-----------all chunks---------",len(chunks))
-
-                for id_, text in enumerate(chunks, 1):
-                    print("------------chunk-----------",id_)
-                    #add describe function with LLM to better functionement
-                    Graphhandler.add_sentence_to_parent(Node_id,text,"-1",text[1:5],text[1:5])
-
-            print("simple chunks add")
+        # Device_id=Graphhandler.add_sentence_to_parent(root_id,device,"0",device,device,device)
+        # chunks=read_file(filename,DOCUMENT_PATH,use_md)
+        # print(chunks)
 
         message= "Success"
     except Exception as e:
@@ -131,27 +114,19 @@ def get_context_():
     question = request.form.get('question')
     type_search=request.form.get('type_search')  #smart,similarity
     Node_id=request.form.get('Node_id') #id where start
+    device=request.form.get('device',None)
+    k=request.form.get('k',10)
+    n=request.form.get('n',2)
 
-    try:
-        k=request.form.get('k')
-        n=request.form.get('n')
-    except:
-        k=10
-        n=2
     context="No context"
     print("--serch type: ",type_search)
 
-    #--------------Smart search--------------
-    if type_search=="smart":
-        try:
-            context=Graphhandler.search_recursive(Node_id,question)
-        except:
-            context="No context"
     #--------------Similarity search--------------
-    elif type_search=="similarity":
+    if type_search=="similarity":
         try:
-            context=Graphhandler.search_similarity(question,"vector",k)
-        except:
+            context=Graphhandler.search_similarity(question,"vector",k,device)
+        except Exception as e:
+            print("error get_context",str(e))
             context="No context"
 
     message= context
