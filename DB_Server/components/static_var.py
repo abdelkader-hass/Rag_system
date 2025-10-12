@@ -6,6 +6,7 @@ NEO4J_URI ,NEO4J_USER ,NEO4J_PASSWORD ,DB= "neo4j://127.0.0.1:7687", "neo4j", "n
 SETTINGS_FILE="./settings.json"
 
 DOCUMENT_PATH="./vol/documents"
+TEMP_MD_PATH="./vol/documents/temp.md"
 IMAGES_PATH="./vol/documents/imgs"
 EMB_MODEL_PATH="./vol/EMBmodel"
 FEMB_MODEL_PATH="./vol/EMBmodel/all-MiniLM-L6-v2"

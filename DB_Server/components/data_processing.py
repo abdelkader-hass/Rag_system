@@ -5,7 +5,7 @@ import re
 import re
 import uuid
 import fitz
-from .static_var import IMAGES_PATH,DOCUMENT_PATH
+from .static_var import IMAGES_PATH,DOCUMENT_PATH,TEMP_MD_PATH
 
 def markdown_tree(md_text):
     try :
@@ -96,16 +96,16 @@ def read_file(file_name,documents_folder=DOCUMENT_PATH,is_md="True"):
         doc=read_pdf(file_path)
 
         if is_md=="True":
-            markdown_content=get_markdown(doc=doc)
+            markdown_content=get_markdown(doc=doc,md_output=TEMP_MD_PATH)
             markdown_content=markdown_content.replace("|"," ").replace("</br>","\n").strip()
-
             chunks=split_by_headers_and_bolds(markdown_content,chunk_size=1000)
             final_chunks=get_formated_chunks(chunks,n=300,doc_name=file_name,min_words_merge=20)
             return final_chunks
             
     else:
-        text=read_other(file_path)
-        return False,"",text
+        return []
+        # text=read_other(file_path)
+        # return text
 
 import re
 
@@ -440,7 +440,7 @@ def save_md_temp(md_output="temp.md",doc=None):
 
 
 def get_markdown(md_output="temp.md",doc=None,):
-    save_md_temp(doc=doc)
+    save_md_temp(doc=doc,md_output=md_output)
     with open(md_output,"r",encoding="utf-8") as e:
         markdown_content=e.read()
     return markdown_content

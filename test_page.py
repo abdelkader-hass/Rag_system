@@ -5,6 +5,9 @@ from werkzeug.utils import secure_filename
 # --- CONFIGURATION ---
 API_URL = "http://localhost:5009/add_file"  # Change this to your Flask server URL
 API_URL_context="http://localhost:5009/get_context"
+
+API_URL_QA="http://localhost:5009/add_file_QA"
+
 import fitz
 import re,os
 
@@ -92,16 +95,62 @@ if st.button("🚀 Upload and Process"):
 
         except Exception as e:
             st.error(f"⚠️ An error occurred: {e}")
+# --- SEND FILE ---
 
 
-st.markdown("""
+st.title("Add Q&A")
+# --- FILE UPLOAD ---
+uploaded_file_qa = st.file_uploader("Select a Q&A file", type=["csv"])
+delimiter = st.text_input("delimiter",value=";",max_chars=1,placeholder='delimiter can be , ; - ')
+if st.button("🚀 Upload Q&A and Process"):
+    if uploaded_file_qa is None:
+        st.error("Please upload a file first.")
+    else:
+        try:
+            files = {"file": (uploaded_file_qa.name, uploaded_file_qa.getvalue())}
+            data = {
+                "device":str(device),
+                "delimiter":delimiter
+            }
+
+            with st.spinner("Uploading file and waiting for response...."):
+                response = requests.post(API_URL_QA, files=files, data=data)
+
+            if response.ok:
+                st.success("✅ File successfully uploaded!")
+                st.text_area("Server Response", response.text, height=200)
+            else:
+                st.error(f"❌ Error {response.status_code}")
+                st.text_area("Server Response", response.text, height=200)
+
+
+
+                # filename = secure_filename(uploaded_file.filename)
+                # uploaded_file.save(os.path.join("temp.pdf", filename))
+
+                # doc = fitz.open(pdf_path)
+                
+                # markdown_content=get_markdown(doc=doc)
+                # # markdown_content = pymupdf4llm.to_markdown(doc="temp.pdf",page_separators=True,table_strategy="lines",write_images=True,image_path="img_pd")
+                # markdown_content=markdown_content.replace("|"," ").replace("</br>","\n").strip()
+
+                # chunks=split_by_headers_and_bolds(markdown_content,chunk_size=1000)
+                # final_chunks=get_formated_chunks(chunks,n=300,doc_name=uploaded_file.name,min_words_merge=20)
+                # st.write(final_chunks)
+
+
+        except Exception as e:
+            st.error(f"⚠️ An error occurred: {e}")
+
+
+
+st.title("""
 Use this page to send test queries to your Flask `/get_context` endpoint.
 """)
 
 # --- INPUT FIELDS ---
 question = st.text_area("📝 Enter your question:", height=100, placeholder="Type your question here...")
 type_search = st.selectbox("🔎 Type of search:", ["smart", "similarity"])
-Node_id = st.text_input("🧩 Node ID (optional):", placeholder="e.g. ROOT-001-124")
 use_device=st.toggle("use device")
 # --- BUTTON TO SEND REQUEST ---
 if st.button("🚀 Send Request"):
@@ -112,7 +161,7 @@ if st.button("🚀 Send Request"):
             data = {
                 "question": question,
                 "type_search": type_search,
-                "Node_id": Node_id,
+                "k":3
             }
 
             if use_device:

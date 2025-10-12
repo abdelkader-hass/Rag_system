@@ -68,7 +68,7 @@ class SimpleGraphHandler:
             return None
 
 
-    def add_sentence_to_parent(self, parent_id=None,parent_name=None, sentence="",ordre="",title="",description="",file_name="",embedding=None):
+    def add_sentence_to_parent(self, parent_id=None,parent_name=None,type_data="", sentence=" no",ordre="",title="",description="",file_name="",embedding=None):
         if not parent_id:
             return ''
         if not self.driver:
@@ -84,7 +84,7 @@ class SimpleGraphHandler:
 
         query_create_child_under_parent = """
         MATCH (p:Parent {id: $parent_id})
-        CREATE (c:Sentence {name:$title,description:$description,parent_id:$parent_id,parent_name:$parent_name,id: $child_id,ordre:$ordre, text: $sentence,embedding:$embedding,len_embedding:$len_embedding,file_name:$file_name})
+        CREATE (c:Sentence {name:$title,description:$description,parent_id:$parent_id,parent_name:$parent_name,type:$type,id: $child_id,ordre:$ordre, text: $sentence,embedding:$embedding,len_embedding:$len_embedding,file_name:$file_name})
         CREATE (p)-[:CONTAINS]->(c)
         RETURN c
         """
@@ -94,19 +94,20 @@ class SimpleGraphHandler:
             REMOVE n:Sentence
             SET n :Parent
             REMOVE n.embedding
-            CREATE (c:Sentence {name:$title,description:$description,parent_id:$parent_id,parent_name:$parent_name, id: $child_id,ordre:$ordre, text: $sentence, embedding: $embedding,len_embedding:$len_embedding,file_name:$file_name})
+            CREATE (c:Sentence {name:$title,description:$description,parent_id:$parent_id,parent_name:$parent_name,type:$type, id: $child_id,ordre:$ordre, text: $sentence, embedding: $embedding,len_embedding:$len_embedding,file_name:$file_name})
             CREATE (n)-[:CONTAINS]->(c)
             RETURN c
         """
 
         try:
+
             if embedding:
                 title_embedding=embedding
             else:
                 title_embedding=self.emb_model.generate_embeddings([sentence])
         except Exception as e:
             print('error embedding chunk', str(e))
-        parameters = {"parent_id": parent_id,"parent_name":parent_name, "child_id": child_id, "sentence": sentence,"embedding":title_embedding,"len_embedding":len(title_embedding),"ordre":ordre,"title":title,"description":description,"file_name":file_name}
+        parameters = {"parent_id": parent_id,"parent_name":parent_name, "child_id": child_id,"type":type_data, "sentence": sentence,"embedding":title_embedding,"len_embedding":len(title_embedding),"ordre":ordre,"title":title,"description":description,"file_name":file_name}
 
         try:
             # First, check if a Parent node exists with the given id
@@ -206,7 +207,7 @@ class SimpleGraphHandler:
 
 
     #Search from grapgh  -------------------
-    def search_similarity(self,query="",retriever_type='vector',top_k=5,device=None):
+    def search_similarity(self,query="",retriever_type='vector',top_k=5,device=None,filters=None):
         try:
             # Initialize the wrapped embedder
             embedder = self.emb_model
@@ -239,25 +240,18 @@ class SimpleGraphHandler:
             # Alternative retrieval query that uses your category structure
             # Usage example
             if retriever_type == "vector":
-                if device:
-                    try:    
-                        print("filter with device")
-                        results = vector_retriever.search(query_text=query, top_k=top_k,filters={"parent_name":"root!-!"+device})
-                    except Exception as e:
-                        print("error vector_retreiver",str(e))
-                else:
-                    print("filter without device")
-                    try:
-                        results = vector_retriever.search(query_text=query, top_k=top_k)
-                    except Exception as e:
-                        print("error vector_retreiver",str(e))
+                try:    
+                    results = vector_retriever.search(query_text=query, top_k=top_k,filters=filters)
+                except Exception as e:
+                    print("error vector_retreiver",str(e))
+
 
             context=""""""
             if results:
                 for item in results.items:
                     data_dict = ast.literal_eval(item.content)
                     text=data_dict['text']
-                    print(data_dict['parent_name'])
+                    # print(data_dict['parent_name'])
                     context+=f"""
                     {text}"""
             return context
