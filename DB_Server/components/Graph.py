@@ -232,7 +232,7 @@ class SimpleGraphHandler:
                     self.driver,
                     index_name="sav1_embeddings",
                     embedder=embedder,
-                    return_properties=["text", "id","parent_id","parent_name"]
+                    return_properties=["text", "id","parent_id","parent_name","type","description"]
                 )
             except Exception as e:
                 print("Exception crete VectorRetriever",str(e))
@@ -250,7 +250,10 @@ class SimpleGraphHandler:
             if results:
                 for item in results.items:
                     data_dict = ast.literal_eval(item.content)
-                    text=data_dict['text']
+                    if data_dict["type"]=="Q&A":
+                        text="question: "+data_dict['text'] +"-- answer"+data_dict['description']
+                    else:
+                        text=data_dict['text']
                     # print(data_dict['parent_name'])
                     context+=f"""
                     {text}"""

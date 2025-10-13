@@ -271,8 +271,9 @@ def get_context_():
     device=request.form.get('device',None)
     k=request.form.get('k',10)
     n=request.form.get('n',2)
-
-    context="No context"
+    use_categories=request.form.get('use_categories',None)
+    context=""
+    context_QA=""
     print("--serch type: ",type_search)
 
     #--------------Similarity search--------------
@@ -281,9 +282,9 @@ def get_context_():
             if device:
                 #get context from Q&A
                 filters={"parent_name":f"root!-!{device}!-!Q&A"}
-                context=Graphhandler.search_similarity(question,"vector",k,device,filters=filters)
+                context_QA=Graphhandler.search_similarity(question,"vector",k,device,filters=filters)
                 print("ALL Questions device",device)
-                print(context)
+                print(context_QA)
                 if os.path.exists(JSON_UIDS_PATH):
                     with open(JSON_UIDS_PATH, "r", encoding="utf-8") as f:
                         nodes_uids = json.load(f)
@@ -294,7 +295,7 @@ def get_context_():
                     nodes_uids = {"root": {"nodes_uids":{}}}
                     categories_ids=None
                 
-                if categories_ids:
+                if categories_ids and use_categories:
 
                     #get context from docs if device defined:
                     result_json=classify_text_with_bedrock(question,str(categories_ids))
@@ -313,22 +314,26 @@ def get_context_():
                         filters={"parent_name":f"root!-!{device}!-!ALL"}
                         context=Graphhandler.search_similarity(question,"vector",k,device,filters=filters)
                         print(context)
+                else:
+                    print("ALL data device",device)
+                    filters={"parent_name":f"root!-!{device}!-!ALL"}
+                    context=Graphhandler.search_similarity(question,"vector",k,device,filters=filters)
+                    print(context)
 
             else:
-                context=Graphhandler.search_similarity(question,"vector",k,device,filters={"type":f"Q&A"})
+                context_QA=Graphhandler.search_similarity(question,"vector",k,device,filters={"type":f"Q&A"})
                 print("ALL Questions")
-                print(context)
+                print(context_QA)
                 context=Graphhandler.search_similarity(question,"vector",k,device,filters={"type":f"text"})
                 print("ALL data device")
                 print(context)
 
         except Exception as e:
             print("error get_context",str(e))
-            context="No context"
+            context=""
 
-    message= context
+    message= context_QA + context
     return Response(message, content_type='text/plain')
-
 
 
 
