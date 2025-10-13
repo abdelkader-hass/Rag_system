@@ -19,13 +19,14 @@ st.title("📂 Document Management System")
 def load_devices():
     try:
         with open(SETTINGS_FILE, 'r') as f:
-            
             return json.load(f)
     except Exception as e:
         st.warning(f"Could not load devices: {e}")
         return {}
 
 devices_data = load_devices()['devices']
+categories_list = load_devices()['categories']
+use_categories=load_devices()['use_categories']
 
 # --- TABS ---
 tab1, tab2, tab3 = st.tabs(["📤 Add File", "🔍 Get Context", "💬 Chat"])
@@ -45,7 +46,7 @@ with tab1:
     if not is_qa_file:
         # --- REGULAR FILE UPLOAD ---
         st.subheader("Upload Document")
-        uploaded_file = st.file_uploader("Select a file", type=["pdf", "docx", "csv", "json", "md", "html"], key="regular_file")
+        uploaded_file = st.file_uploader("Select a file", type=["pdf","txt"], key="regular_file")
         
         st.subheader("Optional Parameters")
         col1, col2, col3 = st.columns(3)
@@ -68,9 +69,8 @@ with tab1:
                 index=0
             )
         
-        use_categories = st.toggle("Use categories", value=False)
-        chunk_length = st.number_input("Chunk Length (words)", min_value=100, max_value=5000, value=1000, step=100)
-        
+        chunk_length = st.number_input("Chunk Length (words)", min_value=100, max_value=5000, value=1000, step=50)
+        part_size=st.number_input("Chunk Length (words)", min_value=100, max_value=500, value=300, step=50)
         if st.button("🚀 Upload and Process", key="upload_regular"):
             if uploaded_file is None:
                 st.error("Please upload a file first.")
@@ -80,12 +80,14 @@ with tab1:
                     data = {
                         "split_type": split_type,
                         "use_md": use_md,
-                        "chunk_length": str(chunk_length),
+                        "chunk_length": int(chunk_length),
+                        "part_size":int(chunk_length),
                         "device": str(device),
                     }
-                    if use_categories:
-                        data['categories'] = "general information,installation,Troubleshooting,update"
-                    
+                    if use_categories=="True" and len(categories_list)>2:
+                        
+                        data['categories'] = categories_list
+                        print(categories_list)
                     with st.spinner("Uploading file and waiting for response..."):
                         response = requests.post(API_URL, files=files, data=data)
                     
@@ -349,7 +351,7 @@ with tab3:
             
             if selected_device != "ALL":
                 context_data["device"] = selected_device
-            if use_categories_bo:
+            if use_categories_bo=="True":
                 context_data["use_categories"] = use_categories_bo  
             with st.spinner("Retrieving context..."):
                 context_response = requests.post(API_URL_context, data=context_data)

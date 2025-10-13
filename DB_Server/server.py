@@ -53,7 +53,8 @@ def add_file():
 
     split_type = request.form.get('split_type',"smart")   #smart , standard fix chunks 500 words and add all to same node simple_split
     use_md = request.form.get('use_md',"True") 
-    chunk_length= request.form.get('chunk_length',"1000") 
+    chunk_length= request.form.get('chunk_length',1000)
+    part_size=request.form.get('part_size',300)
     extract_image= request.form.get('extract_image',"True")
     try:
         categories_received=request.form.get('categories').split(",")
@@ -103,7 +104,7 @@ def add_file():
         # is_Md,titles,data=read_file(filename,DOCUMENT_PATH,use_md)
         #add categories&Equipements get it from request
 
-        chunks=read_file(filename,DOCUMENT_PATH,use_md)
+        chunks=read_file(filename,DOCUMENT_PATH,use_md,chunk_length=chunk_length,part_size=part_size)
 
         previous_cat_id=None
         previous_cat_name=None
@@ -172,8 +173,10 @@ def add_file():
         print("treated",cpt,"viewed",cpt1)
         #so use categories
         # print(chunks)
-
-        message= "Success"
+        if len(chunks)==0:
+            message= "Empty File or error durring processing"
+        else:
+            message= "Success"
     except Exception as e:
         
         message=f"Error when uploading {filename},{e}"

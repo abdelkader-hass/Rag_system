@@ -89,17 +89,17 @@ def read_other(file_path):
         text += page.get_text()
     return text
 
-def read_file(file_name,documents_folder=DOCUMENT_PATH,is_md="True"):
+def read_file(file_name,documents_folder=DOCUMENT_PATH,is_md="True",chunk_length=1000,part_size=300):
     file_path=os.path.join(f"{documents_folder}",file_name)
     ext = os.path.splitext(file_name)[1].lower() 
-    if ext == '.pdf':
+    if ext in ['.pdf','.txt']  :
         doc=read_pdf(file_path)
 
         if is_md=="True":
             markdown_content=get_markdown(doc=doc,md_output=TEMP_MD_PATH)
             markdown_content=markdown_content.replace("|"," ").replace("</br>","\n").strip()
-            chunks=split_by_headers_and_bolds(markdown_content,chunk_size=1000)
-            final_chunks=get_formated_chunks(chunks,n=300,doc_name=file_name,min_words_merge=20)
+            chunks=split_by_headers_and_bolds(markdown_content,chunk_size=chunk_length)
+            final_chunks=get_formated_chunks(chunks,n=part_size,doc_name=file_name,min_words_merge=20)
             return final_chunks
             
     else:
