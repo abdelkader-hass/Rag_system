@@ -10,8 +10,7 @@ import ast,re,json
 import boto3
 
 #--------------------
-from .static_var import NEO4J_URI ,NEO4J_USER ,NEO4J_PASSWORD ,DB ,RATE_LIMITER,SYSTEM_PROMPT,MODEL_NAME,PROVIDER
-from .static_var import AformatSEARCH,AnswerFormat,Aformat,SYSTEM__SEARCH_PROMPT_answer,SYSTEM_SEARCH_PROMPT,MAX_WORKERS
+from .static_var import NEO4J_URI ,NEO4J_USER ,NEO4J_PASSWORD ,DB 
 
 
 class SimpleGraphHandler:
@@ -251,7 +250,7 @@ class SimpleGraphHandler:
                 for item in results.items:
                     data_dict = ast.literal_eval(item.content)
                     if data_dict["type"]=="Q&A":
-                        text="question: "+data_dict['text'] +"-- answer"+data_dict['description']
+                        text="question: "+data_dict['text'] +"---- answer: "+data_dict['description']+"\n"
                     else:
                         text=data_dict['text']
                     # print(data_dict['parent_name'])
@@ -261,35 +260,3 @@ class SimpleGraphHandler:
         except Exception as e :
             print("error search_similarity",str(e))
     #---------------------
-    def answer_question(question="" , context=""):
-        try:
-            result_json={}
-            if PROVIDER=="Bedrock":
-                messages =[{"role": "user","content":SYSTEM__SEARCH_PROMPT_answer},
-                {"role":"assistant","content":"now give me the context"},
-                {"role":"user","content":f"{context}"},
-                {"role":"assistant","content":"now give me your question"},
-                {"role":"user","content":f"Question :{question}"},
-                ]
-            
-            else:
-                messages =[{"role": "system","content":SYSTEM__SEARCH_PROMPT_answer},
-                        {"role":"assistant","content":"now give me the context"},
-                        {"role":"user","content":f"{context}"},
-                        {"role":"assistant","content":"now give me your question"},
-                        {"role":"user","content":f"Question :{question}"},
-                    ]
-                
-            RATE_LIMITER.acquire()
-            resp = completion(
-                model=MODEL_NAME,
-                messages=messages,
-                response_format=AnswerFormat
-            )
-            
-            result_json=json.loads(resp.choices[0].message.content)
-
-            return result_json["answer_md_format"],result_json['bool_answer_find_or_not']
-        except Exception as e:
-            print("error run answer",str(e))
-            return "error no asnwer"

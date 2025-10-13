@@ -1,5 +1,5 @@
 
-from flask import Flask, request,Response
+from flask import Flask, request,Response,jsonify
 from werkzeug.utils import secure_filename
 import os
 import pandas as pd
@@ -11,6 +11,8 @@ from components.static_var import DOCUMENT_PATH,FEEDBACK_PATH,JSON_UIDS_PATH
 from components.data_processing import split_text_smart
 import json
 from components.LLM import classify_text_with_bedrock
+
+
 
 appp = Flask(__name__)
 
@@ -330,10 +332,12 @@ def get_context_():
 
         except Exception as e:
             print("error get_context",str(e))
-            context=""
+            context="No context"
+            context_QA="No context"
 
-    message= context_QA + context
-    return Response(message, content_type='text/plain')
+    message={"Q&A":context_QA,"text":context}
+
+    return jsonify(message), 200
 
 
 

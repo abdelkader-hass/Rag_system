@@ -4,6 +4,7 @@ import json
 import litellm
 from typing import Optional
 from components.static_var import SETTINGS_FILE
+from pydantic import BaseModel
 # --- CONFIGURATION ---
 API_URL = "http://localhost:5009/add_file"
 API_URL_context = "http://localhost:5009/get_context"
@@ -63,7 +64,7 @@ with tab1:
         with col3:
             device = st.selectbox(
                 "Device model",
-                options=["EL200", "C500"],
+                options=list(devices_data.keys()),
                 index=0
             )
         
@@ -112,7 +113,7 @@ with tab1:
         
         device_qa = st.selectbox(
             "Device model",
-            options=["EL200", "C500"],
+            options=list(devices_data.keys()),
             index=0,
             key="device_qa"
         )
@@ -180,6 +181,105 @@ with tab2:
             except Exception as e:
                 st.error(f"⚠️ Error connecting to API: {e}")
 
+
+
+
+
+
+
+
+class Answerformat(BaseModel):
+    is_a_good_answer:bool
+    answer:str
+    reason:str
+
+
+
+
+def answer_from_docs(question_input,context_text):
+    print("run answer from doc")
+    system_prompt = """You are a helpful assistant. Answer the user's question based ONLY on the provided context. 
+    If the answer cannot be found in the context, respond with: "No answer found in knowledge base." and is_a_good_answer is False
+    Be concise and accurate."""
+
+    user_message = f"""Context:
+    {context_text}
+
+    Question: {question_input}
+
+    Please provide an answer based only on the context above."""
+
+    # Call Bedrock via LiteLLM
+    response = litellm.completion(
+        model="bedrock/anthropic.claude-3-sonnet-20240229-v1:0",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message}
+        ],response_format=Answerformat
+    )
+    result_json=json.loads(response.choices[0].message.content)
+
+    answer = result_json['answer']
+    is_a_good_answer=result_json['is_a_good_answer']
+    reason=result_json['reason']
+
+    if is_a_good_answer:
+        # Add assistant message to history with context
+        st.session_state.chat_history.append({
+            "role": "assistant",
+            "content": "Docs:"+answer,
+            "context": context_text
+        })
+        
+    else:
+              
+        st.session_state.chat_history.append({
+            "role": "assistant",
+            "content": "No answer found in knowledge base.",
+            "context": "No context"
+        })
+    st.rerun()
+
+
+def answer_from_QA(question_input,context_QA,context_text):
+    print("run answer_from_QA")
+    system_prompt = """You are a helpful assistant. Answer the user's question based ONLY on the provided context. 
+    If the answer cannot be found in the context, respond with: "No answer found in knowledge base." and is_a_good_answer is False
+    Be concise and accurate."""
+
+    user_message = f"""Context:
+    {context_QA}
+
+    Question: {question_input}
+
+    Please provide an answer based only on the context above."""
+
+    # Call Bedrock via LiteLLM
+    response = litellm.completion(
+        model="bedrock/anthropic.claude-3-sonnet-20240229-v1:0",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message}
+        ],response_format=Answerformat
+    )
+    result_json=json.loads(response.choices[0].message.content)
+
+    answer = result_json['answer']
+    is_a_good_answer=result_json['is_a_good_answer']
+    reason=result_json['reason']
+    print("result QA",result_json)
+    if  is_a_good_answer=="True":
+        # Add assistant message to history with context
+        st.session_state.chat_history.append({
+            "role": "assistant",
+            "content": "FQ&A"+answer,
+            "context": context_QA
+        })
+        st.rerun()
+    else:
+        answer_from_docs(question_input,context_text)
+
+
 with tab3:
     st.header("💬 Chat with AI")
     
@@ -238,7 +338,7 @@ with tab3:
         try:
             # Step 1: Get context from Flask API
             settings = load_devices()
-            selected_search_type=settings.get("search_type","smart")
+            selected_search_type=settings.get("search_type","similarity")
             use_categories_bo=settings.get("use_categories",None)
 
             context_data = {
@@ -260,53 +360,37 @@ with tab3:
             else:
                 try:
                     context_json = context_response.json()
-                    context_text = json.dumps(context_json, indent=2)
+                    # context_text = json.dumps(context_json, indent=2)
+                    context_QA=context_json["Q&A"]
+                    context_text=context_json["text"]
+
                 except Exception:
                     context_text = context_response.text
                 
                 # Step 2: Use LiteLLM with Bedrock to generate answer
-                if not context_text.strip() or context_text == "{}":
-                    answer = "❌ No relevant context found in knowledge base for this question."
-                    st.session_state.chat_history.append({"role": "assistant", "content": answer})
-                else:
+                # if not context_text.strip() or context_text == "{}":
+                #     answer = "❌ No relevant context found in knowledge base for this question."
+                #     st.session_state.chat_history.append({"role": "assistant", "content": answer})
+                # else:
+                if context_QA.strip():
                     with st.spinner("Generating answer..."):
                         try:
                             # Construct prompt
-                            system_prompt = """You are a helpful assistant. Answer the user's question based ONLY on the provided context. 
-If the answer cannot be found in the context, respond with: "No answer found in knowledge base."
-Be concise and accurate."""
-                            
-                            user_message = f"""Context:
-{context_text}
-
-Question: {question_input}
-
-Please provide an answer based only on the context above."""
-                            
-                            # Call Bedrock via LiteLLM
-                            response = litellm.completion(
-                                model="bedrock/anthropic.claude-3-sonnet-20240229-v1:0",
-                                messages=[
-                                    {"role": "system", "content": system_prompt},
-                                    {"role": "user", "content": user_message}
-                                ],
-                                temperature=0.7,
-                                max_tokens=1000
-                            )
-                            
-                            answer = response.choices[0].message.content
-                            
-                            # Add assistant message to history with context
-                            st.session_state.chat_history.append({
-                                "role": "assistant",
-                                "content": answer,
-                                "context": context_text
-                            })
+                            answer_from_QA(question_input=question_input,context_QA=context_QA,context_text=context_text)
                             
                         except Exception as e:
                             error_msg = f"⚠️ Error generating answer: {str(e)}"
                             st.session_state.chat_history.append({"role": "assistant", "content": error_msg})
-        
+                elif context_text.strip():
+                    with st.spinner("Generating answer..."):
+                        try:
+                            # Construct prompt
+                            answer_from_docs(question_input=question_input,context_text=context_text)
+                            
+                        except Exception as e:
+                            error_msg = f"⚠️ Error generating answer: {str(e)}"
+                            st.session_state.chat_history.append({"role": "assistant", "content": error_msg})
+
         except Exception as e:
             error_msg = f"⚠️ Error: {e}"
             st.session_state.chat_history.append({"role": "assistant", "content": error_msg})
