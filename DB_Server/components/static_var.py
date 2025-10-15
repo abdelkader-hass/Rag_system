@@ -3,6 +3,8 @@ import threading,os,time,json
 
 
 NEO4J_URI ,NEO4J_USER ,NEO4J_PASSWORD ,DB= "neo4j://127.0.0.1:7687", "neo4j", "neo4jadmin","sav1"
+# NEO4J_URI ,NEO4J_USER ,NEO4J_PASSWORD ,DB= "neo4j://172.31.14.92:7687", "neo4j", "adminneo4j","neo4j"
+
 SETTINGS_FILE="./settings.json"
 
 DOCUMENT_PATH="./vol/documents"

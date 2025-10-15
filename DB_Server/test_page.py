@@ -29,7 +29,9 @@ categories_list = load_devices()['categories']
 use_categories=load_devices()['use_categories']
 
 # --- TABS ---
-tab1, tab2, tab3 = st.tabs(["📤 Add File", "🔍 Get Context", "💬 Chat"])
+# tab1, tab2, tab3 = st.tabs(["📤 Add File", "🔍 Get Context", "💬 Chat"])
+
+tab1, tab3 = st.tabs(["📤 Add File", "💬 Chat"])
 
     # ============= TAB 1: ADD FILE =============
 
@@ -130,7 +132,7 @@ with tab1:
                         "device": str(device_qa),
                         "delimiter": delimiter
                     }
-                    
+                    st.write("comne")
                     with st.spinner("Uploading Q&A file and waiting for response..."):
                         response = requests.post(API_URL_QA, files=files, data=data)
                     
@@ -145,43 +147,43 @@ with tab1:
                     st.error(f"⚠️ An error occurred: {e}")
 
 # ============= TAB 2: GET CONTEXT =============
-with tab2:
-    st.header("Get Context")
+# with tab2:
+#     st.header("Get Context")
     
-    st.markdown("""
-    Send test queries to the Flask `/get_context` endpoint.
-    """)
+#     st.markdown("""
+#     Send test queries to the Flask `/get_context` endpoint.
+#     """)
     
-    question = st.text_area("📝 Enter your question:", height=100, placeholder="Type your question here...")
-    type_search = st.selectbox("🔎 Type of search:", ["smart", "similarity"])
+#     question = st.text_area("📝 Enter your question:", height=100, placeholder="Type your question here...")
+#     type_search = st.selectbox("🔎 Type of search:", ["smart", "similarity"])
     
-    if st.button("🚀 Send Request", key="get_context"):
-        if not question.strip():
-            st.error("Please enter a question before sending.")
-        else:
-            try:
-                data = {
-                    "question": question,
-                    "type_search": type_search,
-                    "k": 3
-                }
+#     if st.button("🚀 Send Request", key="get_context"):
+#         if not question.strip():
+#             st.error("Please enter a question before sending.")
+#         else:
+#             try:
+#                 data = {
+#                     "question": question,
+#                     "type_search": type_search,
+#                     "k": 3
+#                 }
                 
-                with st.spinner("Contacting Flask API..."):
-                    response = requests.post(API_URL_context, data=data)
+#                 with st.spinner("Contacting Flask API..."):
+#                     response = requests.post(API_URL_context, data=data)
                 
-                if response.ok:
-                    st.success("✅ Request successful!")
-                    try:
-                        json_response = response.json()
-                        st.json(json_response)
-                    except Exception:
-                        st.text_area("Response Text:", response.text, height=300)
-                else:
-                    st.error(f"❌ Error {response.status_code}")
-                    st.text_area("Server Response:", response.text, height=300)
+#                 if response.ok:
+#                     st.success("✅ Request successful!")
+#                     try:
+#                         json_response = response.json()
+#                         st.json(json_response)
+#                     except Exception:
+#                         st.text_area("Response Text:", response.text, height=300)
+#                 else:
+#                     st.error(f"❌ Error {response.status_code}")
+#                     st.text_area("Server Response:", response.text, height=300)
             
-            except Exception as e:
-                st.error(f"⚠️ Error connecting to API: {e}")
+#             except Exception as e:
+#                 st.error(f"⚠️ Error connecting to API: {e}")
 
 
 
