@@ -8,7 +8,6 @@ from components.Graph import SimpleGraphHandler
 from components.data_processing import read_file
 from components.local_embeder import LocalEmbModel
 from components.static_var import DOCUMENT_PATH,FEEDBACK_PATH,JSON_UIDS_PATH
-from components.data_processing import split_text_smart
 import json
 from components.LLM import classify_text_with_bedrock
 
@@ -37,7 +36,7 @@ def index():
 def add_file():
     if 'file' not in request.files:
         message="No file "
-        return Response(message, content_type='text/plain')
+        return Response(message,status=500, content_type='text/plain')
     file = request.files['file']
 
     if os.path.exists(JSON_UIDS_PATH):
@@ -53,9 +52,10 @@ def add_file():
 
     split_type = request.form.get('split_type',"smart")   #smart , standard fix chunks 500 words and add all to same node simple_split
     use_md = request.form.get('use_md',"True") 
-    chunk_length= request.form.get('chunk_length',1000)
-    part_size=request.form.get('part_size',300)
+    chunk_length= int(request.form.get('chunk_length',1000))
+    part_size=int(request.form.get('part_size',300))
     extract_image= request.form.get('extract_image',"True")
+
     try:
         categories_received=request.form.get('categories').split(",")
     except:
@@ -81,7 +81,7 @@ def add_file():
             
             filename = secure_filename(file.filename)
             if os.path.exists(os.path.join(DOCUMENT_PATH, filename)):
-                return Response('File exist already', content_type='text/plain') 
+                return Response('File exist already',status=500, content_type='text/plain') 
             file.save(os.path.join(DOCUMENT_PATH, filename))
 
         except Exception as e:
@@ -104,7 +104,7 @@ def add_file():
         # is_Md,titles,data=read_file(filename,DOCUMENT_PATH,use_md)
         #add categories&Equipements get it from request
 
-        chunks=read_file(filename,DOCUMENT_PATH,use_md,chunk_length=chunk_length,part_size=part_size)
+        chunks=read_file(file_name=filename,documents_folder=DOCUMENT_PATH,is_md=use_md,chunk_length=chunk_length,part_size=part_size)
 
         previous_cat_id=None
         previous_cat_name=None
@@ -177,10 +177,11 @@ def add_file():
             message= "Empty File or error durring processing"
         else:
             message= "Success"
+        return Response(message,status=200, content_type='text/plain')
     except Exception as e:
-        
         message=f"Error when uploading {filename},{e}"
-    return Response(message, content_type='text/plain')
+        print(message)
+        return Response(message,status=500, content_type='text/plain')
 
 
 @appp.route('/add_file_QA', methods=['POST'])
@@ -201,11 +202,6 @@ def add_file_QA():
     device=request.form.get('device',None)
     delimiter=request.form.get('delimiter',None)
 
-    try:
-        categories_received=request.form.get('categories').split(",")
-    except:
-        categories_received=[]
-
     filename=file.filename
     file_path=os.path.join(DOCUMENT_PATH, filename)
     try :
@@ -224,7 +220,7 @@ def add_file_QA():
             
             filename = secure_filename(file.filename)
             if os.path.exists(file_path):
-                return Response('File exist already', content_type='text/plain') 
+                return Response('File exist already',status=500, content_type='text/plain') 
             file.save(file_path)
 
         except Exception as e:
@@ -262,10 +258,11 @@ def add_file_QA():
             chunk_node_id,_=Graphhandler.add_sentence_to_parent(parent_id=category_id,parent_name=f"root!-!{device}!-!Q&A"
                                             ,sentence=text,ordre=str(chunk_id),type_data="Q&A",title=titles,file_name=doc_name,description=str(answer),embedding=None)
         message= "Success"
+        return Response(message,status=200, content_type='text/plain')
     except Exception as e:
-        
+
         message=f"Error when uploading {filename},{e}"
-    return Response(message, content_type='text/plain')
+        return Response(message,status=500, content_type='text/plain')
 
 
 @appp.route('/get_context', methods=['POST'])

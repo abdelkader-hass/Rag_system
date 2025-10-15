@@ -2,5 +2,6 @@
 .venv
 chroma/keeys.py
 DB_Server/settings.json
+chat_app/settings.json
 DB_Server/vol/documents/imgs/*
 DB_Server/vol/*

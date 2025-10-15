@@ -15,7 +15,6 @@ st.set_page_config(page_title="File Uploader", page_icon="📂", layout="wide")
 st.title("📂 Document Management System")
 
 # --- LOAD DEVICES ---
-@st.cache_data
 def load_devices():
     try:
         with open(SETTINGS_FILE, 'r') as f:
@@ -71,8 +70,7 @@ with tab1:
                 index=0
             )
         
-        chunk_length = st.number_input("Chunk Length (words)", min_value=100, max_value=5000, value=1000, step=50)
-        part_size=st.number_input("Chunk Length (words)", min_value=100, max_value=500, value=300, step=50)
+
         if st.button("🚀 Upload and Process", key="upload_regular"):
             if uploaded_file is None:
                 st.error("Please upload a file first.")
@@ -99,7 +97,6 @@ with tab1:
                     else:
                         st.error(f"❌ Error {response.status_code}")
                         st.text_area("Server Response", response.text, height=200)
-                
                 except Exception as e:
                     st.error(f"⚠️ An error occurred: {e}")
     
@@ -282,6 +279,8 @@ def answer_from_QA(question_input,context_QA,context_text):
         st.rerun()
     else:
         answer_from_docs(question_input,context_text)
+
+
 
 
 with tab3:

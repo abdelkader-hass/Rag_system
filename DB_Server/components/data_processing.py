@@ -94,9 +94,8 @@ def read_file(file_name,documents_folder=DOCUMENT_PATH,is_md="True",chunk_length
     ext = os.path.splitext(file_name)[1].lower() 
     if ext in ['.pdf','.txt']  :
         doc=read_pdf(file_path)
-
         if is_md=="True":
-            markdown_content=get_markdown(doc=doc,md_output=TEMP_MD_PATH)
+            markdown_content=get_markdown(doc=doc,md_output=TEMP_MD_PATH,file_name=file_name)
             markdown_content=markdown_content.replace("|"," ").replace("</br>","\n").strip()
             chunks=split_by_headers_and_bolds(markdown_content,chunk_size=chunk_length)
             final_chunks=get_formated_chunks(chunks,n=part_size,doc_name=file_name,min_words_merge=20)
@@ -107,87 +106,6 @@ def read_file(file_name,documents_folder=DOCUMENT_PATH,is_md="True",chunk_length
         # text=read_other(file_path)
         # return text
 
-import re
-
-def split_text_smart(text, max_chunk_size=500, overlap=50):
-    """
-    Split text into chunks without breaking sentences.
-    
-    Args:
-        text (str): The text to split
-        max_chunk_size (int): Maximum characters per chunk
-        overlap (int): Number of characters to overlap between chunks
-    
-    Returns:
-        list: List of text chunks
-    """
-    # Split text into sentences using regex
-    # This handles periods, exclamation marks, and question marks
-    sentences = re.split(r'(?<=[.!?])\s+', text.strip())
-    
-    chunks = []
-    current_chunk = ""
-    
-    for sentence in sentences:
-        # Check if adding this sentence would exceed the limit
-        if len(current_chunk) + len(sentence) + 1 <= max_chunk_size:
-            # Add sentence to current chunk
-            if current_chunk:
-                current_chunk += " " + sentence
-            else:
-                current_chunk = sentence
-        else:
-            # Current chunk is ready, start a new one
-            if current_chunk:
-                chunks.append(current_chunk)
-                
-                # Handle overlap by taking last part of current chunk
-                if overlap > 0 and len(current_chunk) > overlap:
-                    overlap_text = current_chunk[-overlap:]
-                    # Find the start of the last complete word in overlap
-                    last_space = overlap_text.rfind(' ')
-                    if last_space != -1:
-                        current_chunk = overlap_text[last_space + 1:] + " " + sentence
-                    else:
-                        current_chunk = sentence
-                else:
-                    current_chunk = sentence
-            else:
-                current_chunk = sentence
-    
-    # Add the last chunk if it exists
-    if current_chunk:
-        chunks.append(current_chunk)
-    
-    return chunks
-
-def split_text_by_paragraphs(text, max_chunk_size=500):
-    """
-    Alternative approach: Split by paragraphs first, then sentences if needed.
-    
-    Args:
-        text (str): The text to split
-        max_chunk_size (int): Maximum characters per chunk
-    
-    Returns:
-        list: List of text chunks
-    """
-    paragraphs = text.split('\n\n')
-    chunks = []
-    
-    for paragraph in paragraphs:
-        paragraph = paragraph.strip()
-        if not paragraph:
-            continue
-            
-        if len(paragraph) <= max_chunk_size:
-            chunks.append(paragraph)
-        else:
-            # Paragraph is too long, split by sentences
-            para_chunks = split_text_smart(paragraph, max_chunk_size)
-            chunks.extend(para_chunks)
-    
-    return chunks
 
 #-----------------------new methode
 
@@ -196,7 +114,7 @@ import re
 import os
 import math 
 
-md_output = "{DOCUMENT_PATH}/example.md"
+# md_output = "{DOCUMENT_PATH}/example.md"
 image_folder = IMAGES_PATH
 
 
@@ -311,6 +229,7 @@ def split_by_headers_and_bolds(markdown_text: str, chunk_size: int = 300,min_siz
             buffer_section = {k: chunk.get(k) for k in level_keys}
         else:
             # (buffer_count <min_size or chunk["word_count"]<min_size)
+            # print("type1",type(buffer_count),type(chunk_size),type(chunk["word_count"]))
             if ((buffer_count + chunk["word_count"] <= chunk_size) )  and same_section(chunk, buffer_section):
                 if chunk["title_"][-1]!="None":
                     buffer_text += "\n" +chunk["title_"][-1]+"\n"+chunk["text"]
@@ -374,9 +293,12 @@ def map_font_sizes_to_headers(doc):
     return header_map
 
 
-def save_md_temp(md_output="temp.md",doc=None):
+def save_md_temp(md_output="temp.md",doc=None,file_name=None):
+    if file_name:
+        file_name= file_name.replace(".","ext!")
+    else:
+        file_name=""
     header_map = map_font_sizes_to_headers(doc)
-
     with open(md_output, "w", encoding="utf-8") as f_md:
         for page_num, page in enumerate(doc, start=1):
             blocks = sort_blocks(page.get_text("dict")["blocks"])
@@ -421,6 +343,7 @@ def save_md_temp(md_output="temp.md",doc=None):
                                 f_md.write(line_text + "\n\n")
 
                 # --- IMAGE BLOCK ---
+
                 elif b["type"] == 1:
                     for img in page.get_images(full=True):
                         xref = img[0]
@@ -429,18 +352,19 @@ def save_md_temp(md_output="temp.md",doc=None):
                         base_image = doc.extract_image(xref)
                         image_bytes = base_image["image"]
                         ext = base_image["ext"]
-                        image_filename = os.path.join(image_folder, f"page{page_num}_{xref}.{ext}")
+                        image_name=f"{file_name}_page{page_num}_{xref}.png"
+                        image_filename = os.path.join(image_folder,image_name)
                         with open(image_filename, "wb") as img_file:
                             img_file.write(image_bytes)
-                        f_md.write(f"![image_{xref}]({image_filename})\n\n")
+                        f_md.write(f"![imageurl:{image_name}]\n\n")
                         used_xrefs.add(xref)
                         break
 
             f_md.write("\n---\n\n")  # page separator
 
 
-def get_markdown(md_output="temp.md",doc=None,):
-    save_md_temp(doc=doc,md_output=md_output)
+def get_markdown(md_output="temp.md",doc=None,file_name=""):
+    save_md_temp(doc=doc,md_output=md_output,file_name=file_name)
     with open(md_output,"r",encoding="utf-8") as e:
         markdown_content=e.read()
     return markdown_content
@@ -464,6 +388,7 @@ def get_formated_chunks(chunks,n=300,doc_name="",min_words_merge=20):
         # Count words
         words = re.findall(r'\b\w+\b', full_text)
         total_words = len(words)
+        # print("typ2",type(total_words),type(n))
 
         if total_words <= n:
             result_chunks.append({
