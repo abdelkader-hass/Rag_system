@@ -118,55 +118,57 @@ def add_file():
             is_has_other_part=chunk["is_has_other_part"]
             chunk_node_id_,embedding=Graphhandler.add_sentence_to_parent(parent_id=categories_ids['ALL'],parent_name=f"root!-!{device}!-!ALL"
                                                           ,sentence=text,ordre=str(chunk_id),title=titles,file_name=doc_name,type_data="text")
-            
-            if categories_received:
+            try:
+                if categories_received:
 
-                if is_has_other_part :
-                    if previous_cat_id :
-                        # print("use previous",chunk_id,previous_cat_id)
-                        category_id=previous_cat_id
-                        category_name=previous_cat_name
-                        reason=previous_reason
-                        previous_cat_id=None
-                        previous_cat_name=None
-                        previous_reason=None
-                    else:
-                        result_json=classify_text_with_bedrock(text,str(categories_ids))
-                        category_id=result_json["category_id"]
-                        category_name=result_json["category_name"]
-                        reason=result_json["reason"]
-
-                        if categories_ids.get(category_name,None):
-                            previous_cat_id=categories_ids[category_name]
-                            previous_cat_name=category_name
-                            previous_reason=reason
-                            category_id=categories_ids[category_name]
+                    if is_has_other_part :
+                        if previous_cat_id :
+                            # print("use previous",chunk_id,previous_cat_id)
+                            category_id=previous_cat_id
+                            category_name=previous_cat_name
+                            reason=previous_reason
+                            previous_cat_id=None
+                            previous_cat_name=None
+                            previous_reason=None
                         else:
-                            print("Error chunk",chunk_id)
-                            continue
-                else:
-                    if previous_cat_id:
-                        # print("use previous",chunk_id,previous_cat_id)
-                        category_id=previous_cat_id
-                        category_name=previous_cat_name
-                        reason=previous_reason
-                        previous_cat_id=None
-                        previous_cat_name=None
-                        previous_reason=None
-                    else:
-                        result_json=classify_text_with_bedrock(text,str(categories_ids))
-                        category_id=result_json["category_id"]
-                        category_name=result_json["category_name"]
-                        reason=result_json["reason"]
-                        if categories_ids.get(category_name,None):
-                            category_id=categories_ids[category_name]
-                        else:
-                            print("Error chunk",chunk_id)
-                            continue
+                            result_json=classify_text_with_bedrock(text,str(categories_ids))
+                            category_id=result_json["category_id"]
+                            category_name=result_json["category_name"]
+                            reason=result_json["reason"]
 
-                chunk_node_id,_=Graphhandler.add_sentence_to_parent(parent_id=category_id,parent_name=f"root!-!{device}!-!{category_name}"
-                                                ,sentence=text,ordre=str(chunk_id),title=titles,file_name=doc_name,description=str(reason),embedding=embedding,type_data="text")
-                cpt+=1
+                            if categories_ids.get(category_name,None):
+                                previous_cat_id=categories_ids[category_name]
+                                previous_cat_name=category_name
+                                previous_reason=reason
+                                category_id=categories_ids[category_name]
+                            else:
+                                print("Error chunk",chunk_id)
+                                continue
+                    else:
+                        if previous_cat_id:
+                            # print("use previous",chunk_id,previous_cat_id)
+                            category_id=previous_cat_id
+                            category_name=previous_cat_name
+                            reason=previous_reason
+                            previous_cat_id=None
+                            previous_cat_name=None
+                            previous_reason=None
+                        else:
+                            result_json=classify_text_with_bedrock(text,str(categories_ids))
+                            category_id=result_json["category_id"]
+                            category_name=result_json["category_name"]
+                            reason=result_json["reason"]
+                            if categories_ids.get(category_name,None):
+                                category_id=categories_ids[category_name]
+                            else:
+                                print("Error chunk",chunk_id)
+                                continue
+
+                    chunk_node_id,_=Graphhandler.add_sentence_to_parent(parent_id=category_id,parent_name=f"root!-!{device}!-!{category_name}"
+                                                    ,sentence=text,ordre=str(chunk_id),title=titles,file_name=doc_name,description=str(reason),embedding=embedding,type_data="text")
+            except:
+                continue
+            cpt+=1
         print("treated",cpt,"viewed",cpt1)
         #so use categories
         # print(chunks)
