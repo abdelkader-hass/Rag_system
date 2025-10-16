@@ -7,7 +7,7 @@ from components.Neo4jConnector import Neo4jConnector
 from components.Graph import SimpleGraphHandler
 from components.data_processing import read_file
 from components.local_embeder import LocalEmbModel
-from components.static_var import DOCUMENT_PATH,FEEDBACK_PATH,JSON_UIDS_PATH,IMAGES_PATH
+from components.static_var import DOCUMENT_PATH,FEEDBACK_PATH,JSON_UIDS_PATH,IMAGES_PATH,SETTINGS_FILE
 import json
 from components.LLM import classify_text_with_bedrock
 
@@ -23,9 +23,6 @@ if Emb_model.model and DBdriver:
     print("Connected to db and initiat EmbModel")
 
 Graphhandler=SimpleGraphHandler(driver=DBdriver,emb_model=Emb_model)
-
-
-
 
 
 @appp.route("/", methods=["GET"])
@@ -356,6 +353,30 @@ def download_image():
 
     # Return image file
     return send_file(image_path, as_attachment=True)
+
+
+
+
+@appp.route('/set_settings', methods=['POST'])
+def set_settings():
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No JSON data provided"}), 400
+
+        # Save JSON directly to file
+        # os.makedirs(BASE_DIR, exist_ok=True)
+        with open(SETTINGS_FILE, "w") as f:
+            json.dump(data, f, indent=4)
+            
+        return jsonify({
+            "message": "Settings saved successfully",
+            "file_path": SETTINGS_FILE
+        }), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 
 @appp.route('/get_feedback_file', methods=['POST'])
