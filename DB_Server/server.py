@@ -1,5 +1,5 @@
 
-from flask import Flask, request,Response,jsonify
+from flask import Flask, request,Response,jsonify,send_file
 from werkzeug.utils import secure_filename
 import os
 import pandas as pd
@@ -7,7 +7,7 @@ from components.Neo4jConnector import Neo4jConnector
 from components.Graph import SimpleGraphHandler
 from components.data_processing import read_file
 from components.local_embeder import LocalEmbModel
-from components.static_var import DOCUMENT_PATH,FEEDBACK_PATH,JSON_UIDS_PATH
+from components.static_var import DOCUMENT_PATH,FEEDBACK_PATH,JSON_UIDS_PATH,IMAGES_PATH
 import json
 from components.LLM import classify_text_with_bedrock
 
@@ -126,7 +126,7 @@ def add_file():
 
                 if is_has_other_part :
                     if previous_cat_id :
-                        print("use previous",chunk_id,previous_cat_id)
+                        # print("use previous",chunk_id,previous_cat_id)
                         category_id=previous_cat_id
                         category_name=previous_cat_name
                         reason=previous_reason
@@ -285,8 +285,8 @@ def get_context_():
                 #get context from Q&A
                 filters={"parent_name":f"root!-!{device}!-!Q&A"}
                 context_QA=Graphhandler.search_similarity(question,"vector",k,device,filters=filters)
-                print("ALL Questions device",device)
-                print(context_QA)
+                # print("ALL Questions device",device)
+                # print(context_QA)
                 if os.path.exists(JSON_UIDS_PATH):
                     with open(JSON_UIDS_PATH, "r", encoding="utf-8") as f:
                         nodes_uids = json.load(f)
@@ -303,32 +303,32 @@ def get_context_():
                     result_json=classify_text_with_bedrock(question,str(categories_ids))
                     category_id=result_json["category_id"]
                     category_name=result_json["category_name"]
-                    print("Detected category",category_name)
+                    # print("Detected category",category_name)
 
                     reason=result_json["reason"]
                     if categories_ids.get(category_name,None):  
                         filters={"parent_name":f"root!-!{device}!-!{category_name}"}
                         context=Graphhandler.search_similarity(question,"vector",k,device,filters=filters)
-                        print("data from",device,"category",category_name)
-                        print(context)
+                        # print("data from",device,"category",category_name)
+                        # print(context)
                     else:
-                        print("ALL data device",device)
+                        # print("ALL data device",device)
                         filters={"parent_name":f"root!-!{device}!-!ALL"}
                         context=Graphhandler.search_similarity(question,"vector",k,device,filters=filters)
-                        print(context)
+                        # print(context)
                 else:
-                    print("ALL data device",device)
+                    # print("ALL data device",device)
                     filters={"parent_name":f"root!-!{device}!-!ALL"}
                     context=Graphhandler.search_similarity(question,"vector",k,device,filters=filters)
-                    print(context)
+                    # print(context)
 
             else:
                 context_QA=Graphhandler.search_similarity(question,"vector",k,device,filters={"type":f"Q&A"})
-                print("ALL Questions")
-                print(context_QA)
+                # print("ALL Questions")
+                # print(context_QA)
                 context=Graphhandler.search_similarity(question,"vector",k,device,filters={"type":f"text"})
-                print("ALL data device")
-                print(context)
+                # print("ALL data device")
+                # print(context)
 
         except Exception as e:
             print("error get_context",str(e))
@@ -339,6 +339,23 @@ def get_context_():
 
     return jsonify(message), 200
 
+
+
+@appp.route('/download_image', methods=['POST'])
+def download_image():
+    data = request.get_json()
+    if not data or 'image_name' not in data:
+        return jsonify({"error": "Missing 'image_name' in request body"}), 400
+
+    image_name = data['image_name']
+    image_path = os.path.join(IMAGES_PATH, image_name)
+
+    # Check if image exists on the server
+    if not os.path.exists(image_path):
+        return jsonify({"error": f"Image '{image_name}' not found on server"}), 404
+
+    # Return image file
+    return send_file(image_path, as_attachment=True)
 
 
 @appp.route('/get_feedback_file', methods=['POST'])

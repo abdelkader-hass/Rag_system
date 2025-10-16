@@ -5,6 +5,8 @@ import json
 
 
 SETTINGS_PATH="./settings.json"
+LOCAL_IMG_DIR="./tmp_images"
+
 
 FEEDBACK_PATH=""
 

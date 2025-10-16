@@ -1,6 +1,6 @@
 import streamlit as st
 import os,json,requests,boto3,time
-from static_vars import SETTINGS_PATH,FEEDBACK_PATH,MESSAGE_ANSWER,Answerformat,system_prompt
+from static_vars import SETTINGS_PATH,FEEDBACK_PATH,MESSAGE_ANSWER,Answerformat,system_prompt,LOCAL_IMG_DIR
 import boto3
 import requests
 from litellm import completion
@@ -10,6 +10,7 @@ import re
 from PIL import Image
 from io import BytesIO
 import shutil
+
 
 os.makedirs("images",exist_ok=True)
 os.makedirs("tmp_images",exist_ok=True)
@@ -64,9 +65,6 @@ def read_settings(path=SETTINGS_PATH):
             print("failed to save settings",str(e))
 
     return data
-
-
-
 
 
 
@@ -391,7 +389,7 @@ def answer_from_QA(question_input,context_QA,context_text,is_used_categories):
 # sys.stdout=open(LOG_PATH,"a")
 # sys.stderr=open(LOGERROR_PATH,"a")
 
-#images part
+#images part S3
 def convert_image_to_binary(image_path):
     with Image.open(image_path) as img:
 
@@ -401,6 +399,7 @@ def convert_image_to_binary(image_path):
 
         img_byte_array.seek(0)
     return img_byte_array
+
 def save_images_s3():
     aws_settings=st.session_state.settings
     ACCESS_KEY=aws_settings['keys']['AWS_ACCESS_KEY_ID']
@@ -436,7 +435,8 @@ def save_images_s3():
         print(f"Deleted folder: {folder_path}")
     else:
         print(f"Folder '{folder_path}' does not exist.")
-def download_image(image_name):
+
+def download_image_s3(image_name):
     aws_settings=st.session_state.settings
     ACCESS_KEY=aws_settings['keys']['AWS_ACCESS_KEY_ID']
     SECRET_KEY=aws_settings['keys']['AWS_SECRET_ACCESS_KEY']
@@ -460,6 +460,34 @@ def download_image(image_name):
         print(f"Downloaded: {object_key} → {download_path}")
     except Exception as e:
         print(f"Error downloading {object_key} from S3: {e}")
+
+# download image from server 
+def download_image(image_name):
+    local_path = os.path.join(LOCAL_IMG_DIR, image_name)
+
+    # 1️⃣ Check if image already exists locally
+    if os.path.exists(local_path):
+        print(f"✅ Image found locally at {local_path}")
+        return local_path
+
+    # 2️⃣ Otherwise, request it from the Flask API
+    print(f"🕐 Image not found locally. Requesting from server...")
+    response = requests.post(SERVER_URL+"/download_image", json={"image_name": image_name})
+
+    if response.status_code == 200:
+        # Save the received image
+        os.makedirs(LOCAL_IMG_DIR, exist_ok=True)
+        with open(local_path, "wb") as f:
+            f.write(response.content)
+        print(f"✅ Image downloaded and saved to {local_path}")
+        return local_path
+    else:
+        print(f"❌ Failed to download image: {response.text}")
+        return None
+
+
+
+
 def parse_content(s):
     # Pattern to match [imageurl:name.ext] and extract just name.ext
     pattern = r'\[imageurl:([^\[\]]+\.(?:jpg|jpeg|png|gif|bmp|webp))\]'
@@ -509,7 +537,7 @@ except:
 
     for msg in st.session_state.messsage:
         list_parts=parse_content(str(msg[1]))
-        # bool_download_image=False
+        bool_download_image=False
         with chat_container.chat_message(str(msg[0])):
             cpt=0
             for i in list_parts:
@@ -518,19 +546,22 @@ except:
                     cpt+=1    
                     print("image finded",cpt,i[1])
                     try:
-                        # st.image("./tmp_images/"+i[1],width=500)
-                        st.image(r"D:\projects\langchain_chat\Rag_system\DB_Server\vol\documents\imgs/"+i[1])
+                        image_path = os.path.join(LOCAL_IMG_DIR, i[1])
+                        print("image path",image_path)
+                        st.image(image_path)
+                        # st.image(r"D:\projects\langchain_chat\Rag_system\DB_Server\vol\documents\imgs/"+i[1])
                         
                     except:
                         try:
-                            # download_image(i[1])
-                            bool_download_image=True
+                            path=download_image(i[1])
+                            if path:
+                                bool_download_image=True
                         except:
                             st.write(i[1])
                 else:
                     st.write(i[1])
-        # if bool_download_image:
-        #     st.rerun()
+    if bool_download_image:
+        st.rerun()
     user_message = st.chat_input(placeholder="💬 Type your message here...")
 
     # st.write("how to run reinitialization of RS485 Probes")
@@ -591,7 +622,9 @@ except:
             st.rerun()
         
         else:
-            st.session_state.messsage.append(("assistant","No answer found in knowledge base."))
+            print("entred to last else")
+            if st.session_state.messsage[-1][0] != "assistant":
+                st.session_state.messsage.append(("assistant","No answer found in knowledge base."))
             st.rerun()
 
 
