@@ -25,7 +25,9 @@ EXPOSE 5000 7474 7687
 CMD ["bash", "-c", "neo4j start && python3 app.py"]
 
 
-#docker run -p 5000:5000 -p 7474:7474 -p 7687:7687 -v /home/grigoriev_adm/AI/dev/chroma_db_server/volume_test:/data  imagetestneo4j:latest
-# docker run   -p 5009:5009 -p 7474:7474 -p 7687:7687  /
+# docker run -d --name container_sav_pal -p 5009:5009 -p 7474:7474 -p 7687:7687  /
 #  -v /home/grigoriev_adm/AI/dev/chroma_db_server/volume_test/sav_palaiseau1:/data /
-#    -e MAIN_FOLDER=data   graphrag_neo4j:latest
+#    -e MAIN_FOLDER=data   graphrag_neo4j:latest  
+
+# http://172.31.14.92:7474/browser/
+# abdelkader00-neo4j

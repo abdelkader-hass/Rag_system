@@ -3,7 +3,8 @@
 chroma/keeys.py
 DB_Server/settings.json
 chat_app/settings.json
+chat_app/tmp_images/*
 DB_Server/vol/documents/imgs/*
 DB_Server/vol/*
 DB_Server/send_settings.ipynb
-
+test_pdf1.pdf

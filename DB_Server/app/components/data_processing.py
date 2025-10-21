@@ -1,11 +1,10 @@
 import pymupdf4llm
 import re
-import os
-import re
-import re
+import os,io
 import uuid
 import fitz
 from .static_var import IMAGES_PATH,DOCUMENT_PATH,TEMP_MD_PATH
+from PIL import Image
 
 def markdown_tree(md_text):
     try :
@@ -293,7 +292,7 @@ def map_font_sizes_to_headers(doc):
     return header_map
 
 
-def save_md_temp(md_output="temp.md",doc=None,file_name=None):
+def save_md_temp_old(md_output="temp.md",doc=None,file_name=None):
     if file_name:
         file_name= file_name.replace(".","ext!")
     else:
@@ -362,6 +361,128 @@ def save_md_temp(md_output="temp.md",doc=None,file_name=None):
 
             f_md.write("\n---\n\n")  # page separator
 
+def save_md_temp(md_output="temp.md", doc=None, file_name=None):
+    if file_name:
+        file_name = file_name.replace(".", "ext!")
+    else:
+        file_name = ""
+    
+    header_map = map_font_sizes_to_headers(doc)
+    
+    with open(md_output, "w", encoding="utf-8") as f_md:
+
+        for page_num, page in enumerate(doc, start=1):
+
+            blocks = sort_blocks(page.get_text("dict")["blocks"])
+            # blocks = page.get_text("dict")["blocks"]
+
+            used_xrefs = set()
+            DPI = 150
+
+            current_image_block = []
+
+            for block_id,b in enumerate(blocks):
+                # --- TEXT BLOCK ---
+                if b["type"] == 0:
+                    # Save current image block if any
+                    line_out=""
+                    line_out_img=""
+                    # --- Process text ---
+                    if is_table_block(b):
+                        lines=""
+                        for line in b.get("lines", []):
+                            line_text = re.sub(r"\s{2,}", "|||", " ".join(span["text"] for span in line["spans"]))
+                            line_text = re.sub(r"\|\|\|\|+", "|||", line_text)
+                            if line_text.strip():
+                                lines+=line_text.strip() + "\n"
+                        line_out=lines.strip()
+                    else:
+                        lines=""
+                        for line in b.get("lines", []):
+                            line_text_parts = []
+                            for span in line["spans"]:
+                                fontname = span.get("font", "").lower()
+                                size = round(span.get("size", 0), 1)
+                                text = span["text"].strip()
+                                if not text:
+                                    continue
+                                if "bold" in fontname:
+                                    text = f"**{text}**"
+                                header_prefix = header_map.get(size, "")
+                                if header_prefix and len(text) > 2 and "bold" in fontname:
+                                    text = f"{header_prefix} {text}"
+                                line_text_parts.append(text)
+                            line_text = " ".join(line_text_parts).strip()+"\n"
+                            if line_text:
+                                lines+="\n"+line_text
+                        line_out=lines.strip() + "\n"
+
+
+                    # print("line,",line_out ,"\n -----s")
+                    if current_image_block and len(line_out.strip())>3:
+                        # Merge or save single image
+                        x0 = min(rect.x0 for _, rect in current_image_block)
+                        y0 = min(rect.y0 for _, rect in current_image_block)
+                        x1 = max(rect.x1 for _, rect in current_image_block)
+                        y1 = max(rect.y1 for _, rect in current_image_block)
+                        merged_rect = fitz.Rect(x0, y0, x1, y1)
+
+                        pix = page.get_pixmap(clip=merged_rect, dpi=DPI)
+                        if pix.alpha:
+                            pix = fitz.Pixmap(fitz.csRGB, pix)
+                        img_data = pix.tobytes("png")
+                        pil_img = Image.open(io.BytesIO(img_data))
+                        if pil_img.mode != 'RGB':
+                            pil_img = pil_img.convert('RGB')
+
+                        image_name = f"{file_name}_page{page_num}_block{block_id}.png"
+                        image_filename = os.path.join(image_folder, image_name)
+                        pil_img.save(image_filename, 'PNG')
+                        # f_md.write(f"![imageurl:{image_name}]\n\n")
+                        line_out_img=f"![imageurl:{image_name}]\n\n"
+                        current_image_block = []
+
+                    f_md.write("\n")
+
+                    if len(line_out.strip())>3:
+                        f_md.write(line_out_img)
+                        f_md.write(line_out)
+                    
+                # --- IMAGE BLOCK ---
+                elif b["type"] == 1:
+                    if "image" in b:  # Some PDFs may store image xref directly
+                        xref =b.get('number',())
+                        if xref in used_xrefs:
+                            continue
+                        img_rects =fitz.Rect(*b.get('bbox',()))
+                        # Add image to current block
+                        current_image_block.append((xref, img_rects))
+                        used_xrefs.add(xref)
+
+                else:
+                    print("other type",b["type"],b)
+            # Save any remaining image block at the end of page
+            if current_image_block and len(line_out.strip())>2:
+                x0 = min(rect.x0 for _, rect in current_image_block)
+                y0 = min(rect.y0 for _, rect in current_image_block)
+                x1 = max(rect.x1 for _, rect in current_image_block)
+                y1 = max(rect.y1 for _, rect in current_image_block)
+                merged_rect = fitz.Rect(x0, y0, x1, y1)
+
+                pix = page.get_pixmap(clip=merged_rect, dpi=DPI)
+                if pix.alpha:
+                    pix = fitz.Pixmap(fitz.csRGB, pix)
+                img_data = pix.tobytes("png")
+                pil_img = Image.open(io.BytesIO(img_data))
+                if pil_img.mode != 'RGB':
+                    pil_img = pil_img.convert('RGB')
+
+                image_name = f"{file_name}_page{page_num}_block_{block_id}.png"
+                image_filename = os.path.join(image_folder, image_name)
+                pil_img.save(image_filename, 'PNG')
+                f_md.write(f"![imageurl:{image_name}]\n\n")
+
+            f_md.write("\n---\n\n")  # page separator
 
 def get_markdown(md_output="temp.md",doc=None,file_name=""):
     save_md_temp(doc=doc,md_output=md_output,file_name=file_name)
