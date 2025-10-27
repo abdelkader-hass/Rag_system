@@ -13,18 +13,18 @@ if not MAIN_FOLDER:
     MAIN_FOLDER = f"volume_{timestamp}"
 
 
-SETTINGS_FILE=f"./{MAIN_FOLDER}/settings.json"
-DOCUMENT_PATH=f"./{MAIN_FOLDER}/documents"
-TEMP_MD_PATH=f"./{MAIN_FOLDER}/documents/temp.md"
-IMAGES_PATH=f"./{MAIN_FOLDER}/documents/imgs"
-EMB_MODEL_PATH=f"./{MAIN_FOLDER}/EMBmodel"
-FEMB_MODEL_PATH=f"./{MAIN_FOLDER}/EMBmodel/all-MiniLM-L6-v2"
+SETTINGS_FILE=f"/{MAIN_FOLDER}/settings.json"
+DOCUMENT_PATH=f"/{MAIN_FOLDER}/documents"
+TEMP_MD_PATH=f"/{MAIN_FOLDER}/documents/temp.md"
+IMAGES_PATH=f"/{MAIN_FOLDER}/documents/imgs"
+EMB_MODEL_PATH=f"/{MAIN_FOLDER}/EMBmodel"
+FEMB_MODEL_PATH=f"/{MAIN_FOLDER}/EMBmodel/all-MiniLM-L6-v2"
 EMB_DEVICE="cpu"
 
-DB_URL=f"./{MAIN_FOLDER}/dbs"
-FEEDBACK_PATH=f"./{MAIN_FOLDER}/feedbackall.csv"
+DB_URL=f"/{MAIN_FOLDER}/dbs"
+FEEDBACK_PATH=f"/{MAIN_FOLDER}/feedbackall.csv"
 
-JSON_UIDS_PATH=f"./{MAIN_FOLDER}/uids_nodes.json"
+JSON_UIDS_PATH=f"/{MAIN_FOLDER}/uids_nodes.json"
 if not os.path.exists(DB_URL):
 # Create the directory
     os.makedirs(DB_URL,exist_ok=True)
