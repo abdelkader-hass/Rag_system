@@ -346,18 +346,41 @@ def save_md_temp_old(md_output="temp.md",doc=None,file_name=None):
                 elif b["type"] == 1:
                     for img in page.get_images(full=True):
                         xref = img[0]
+                        DPI=150
                         if xref in used_xrefs:
                             continue
-                        base_image = doc.extract_image(xref)
-                        image_bytes = base_image["image"]
-                        ext = base_image["ext"]
-                        image_name=f"{file_name}_page{page_num}_{xref}.png"
-                        image_filename = os.path.join(image_folder,image_name)
-                        with open(image_filename, "wb") as img_file:
-                            img_file.write(image_bytes)
+
+                        # Get image rectangle on page
+                        img_rects = page.get_image_rects(xref)
+                        if not img_rects:
+                            continue
+                        
+                        rect = img_rects[0]  # Take first occurrence
+
+                        # Render pixmap from page with clip rect and DPI
+                        pix = page.get_pixmap(clip=rect, dpi=DPI)
+
+                        # Flatten transparency to white background if needed
+                        if pix.alpha:
+                            pix = fitz.Pixmap(fitz.csRGB, pix)
+
+                        # Convert pixmap to PIL Image
+                        img_data = pix.tobytes("png")
+                        pil_img = Image.open(io.BytesIO(img_data))
+
+                        # Ensure RGB mode
+                        if pil_img.mode != 'RGB':
+                            pil_img = pil_img.convert('RGB')
+
+                        # Save image
+                        image_name = f"{file_name}_page{page_num}_{xref}.png"
+                        image_filename = os.path.join(image_folder, image_name)
+                        pil_img.save(image_filename, 'PNG')
+
                         f_md.write(f"![imageurl:{image_name}]\n\n")
                         used_xrefs.add(xref)
                         break
+
 
             f_md.write("\n---\n\n")  # page separator
 
