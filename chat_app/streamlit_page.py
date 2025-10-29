@@ -83,6 +83,11 @@ SERVER_URL=data['db_server']
 ACCESS_KEY=data['keys']['AWS_ACCESS_KEY_ID']
 SECRET_KEY=data['keys']['AWS_SECRET_ACCESS_KEY']
 REGION=data['keys']['AWS_REGION_NAME']
+
+os.environ["AWS_ACCESS_KEY_ID"] = ACCESS_KEY
+os.environ["AWS_SECRET_ACCESS_KEY"] = SECRET_KEY
+os.environ["AWS_REGION_NAME"] = REGION
+
 s3_BUCKET = data['keys']['s3_name'] 
 MODEL_NAME=data['keys']['AWS_REGION_NAME']
 
