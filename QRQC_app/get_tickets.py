@@ -160,7 +160,7 @@ def load_data_ids(file_path):
 #-------------------------------
 def save_data(file_path,new_data):
     new_df = pd.DataFrame(new_data)
-
+    
     if os.path.exists(file_path):
         existing_df = pd.read_csv(file_path)
 
@@ -202,8 +202,10 @@ def run_process(project_id,file_path):
         tickets=get_tickets(project_id=project_id,offset=offset,limit=limit,Apikey=APIKEY)
         tickets=tickets.get("issues","")
         if tickets:
+            
             # print(f"retreive {len(tickets)} started from {offset}")
             for ticket in tickets:
+                
                 row={}
                 ticket_id=ticket.get('id')
                 if int(ticket_id) in Uids_list:
@@ -229,7 +231,7 @@ def run_process(project_id,file_path):
     
             # print(tickets)
         print(f"finish chunk {idx}")
-        time.sleep(5)
+        # time.sleep(5)
 
     print("Sucess",len(rows))
     save_data(file_path,rows)

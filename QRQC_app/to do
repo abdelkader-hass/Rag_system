@@ -3,12 +3,20 @@ ref to use in presentation about qrqc difficulties 51415(closed but not resolved
 tickets with notes 51415 / 51388
 
 get ticket workflow to script simple
-
 filter csv (delete question without answer)
 convert then to csv question answer and use llm to correct then answer
 
-change view if similaire question ticket show list of similaire tickets(with button to view ticket in redmine) and short answer based of the retieved tickets 
+add button to send QA file to bd
 
+
+
+
+
+
+
+test get context see similaire and show context
+
+change view if similaire question ticket show list of similaire tickets(with button to view ticket in redmine) and short answer based of the retieved tickets 
 
 
 avatar: changer la langue de la présentation

@@ -4,6 +4,9 @@ import matplotlib.pyplot as plt
 import re
 import os
 import random
+import requests
+from io import StringIO
+from datetime import datetime
 
 # Professional styling configuration
 st.set_page_config(
@@ -74,24 +77,94 @@ with col_config2:
 with col_config3:
     st.write("")
     st.write("")
-    show_stats = st.button("Generate Report", use_container_width=True)
+    show_stats = st.button("Generate Report", width='stretch')
+
+
+csv_path = f"{selected_device}_qrqc_data.csv"
+if not os.path.exists(csv_path):
+    st.error(f"⚠️ Data file not found: {csv_path}")
+else:
+    df = pd.read_csv(csv_path)
+
+    # Data preview section
+    with st.expander("📋 View Raw Data", expanded=False):
+        st.caption(f"Source: {selected_device}_data.csv")
+        tab1, tab2,tab3 = st.tabs(["First Records", "Latest Records","Q&A"])
+        with tab1:
+            st.dataframe(df.head(), width='stretch')
+        with tab2:
+            st.dataframe(df.tail(), width='stretch')
+        answer_cols = ["notes", "QR PROD", "*QR* Solution QR"]
+        with tab3:
+            df2=df.copy(True)
+            # Check which of them actually exist in df
+            existing_cols = [col for col in answer_cols if col in df.columns]
+
+            # Ensure 'ticket_id' and 'QUOI' exist (optional safety check)
+            if not {"ticket_id", "QUOI ?"}.issubset(df.columns):
+                missing = {"ticket_id", "QUOI ?"} - set(df.columns)
+                raise ValueError(f"Missing columns: {missing}")
+
+            # Create the 'question' column
+            df["question"] = df.apply(
+                lambda row: f"ticket_id : {row['ticket_id']} -----\n{row['QUOI ?']}",
+                axis=1
+            )
+
+            def make_answer(row):
+                parts = []
+                for col in existing_cols:
+                    val = row[col]
+                    if pd.notna(val) and str(val).strip():
+                        parts.append(f"{col}: \n {val}")
+                return "\n----\n".join(parts)
+
+            df["answer"] = df.apply(make_answer, axis=1)
+            
+            before_count = len(df)
+            df = df[~(df["answer"].isna() | (df["answer"].str.strip() == ""))].copy()
+            after_count = len(df)
+
+            st.write(f"🧮 Removed {before_count - after_count} rows with empty 'answer' before deleting {before_count}")
+            df.reset_index(drop=True, inplace=True)
+            # Keep only relevant columns
+            output_df = df[["question", "answer"]]
+            output_df=output_df.head()
+
+            # Print results
+            if st.button("Add question to db"):
+                # Create filename with timestamp
+                try:
+                    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+                    filename = f"{timestamp}.csv"
+                    # Convert df to CSV in memory (no need to save to disk)
+                    csv_buffer = StringIO()
+                    output_df.to_csv(csv_buffer, index=False)
+                    csv_buffer.seek(0)
+                    
+                    # Prepare the file to send
+                    files = {
+                        'file': (filename, csv_buffer.getvalue(), 'text/csv')
+                    }
+
+                    # POST request
+                    url = "http://172.31.14.92:5010/add_file_QA"  # your Flask endpoint
+                    selected_device
+                    delimiter=","
+                    data = {
+                        'device': selected_device,
+                        'delimiter': ','
+                    }
+                    response = requests.post(url, files=files, data=data)
+                except Exception as e:
+                    print(str(e))
+                    st.error(f"error {e}")
+                # Keep only question and answer
+            
+        st.dataframe(output_df, width='stretch')
+    df=df2.copy(True)
 
 if show_stats:
-    csv_path = f"{selected_device}_qrqc_data.csv"
-
-    if not os.path.exists(csv_path):
-        st.error(f"⚠️ Data file not found: {csv_path}")
-    else:
-        df = pd.read_csv(csv_path)
-
-        # Data preview section
-        with st.expander("📋 View Raw Data", expanded=False):
-            st.caption(f"Source: {selected_device}_data.csv")
-            tab1, tab2 = st.tabs(["First Records", "Latest Records"])
-            with tab1:
-                st.dataframe(df.head(), use_container_width=True)
-            with tab2:
-                st.dataframe(df.tail(), use_container_width=True)
 
         st.divider()
 
@@ -110,8 +183,8 @@ if show_stats:
         df["solved"] = False
 
         # ✅ Case 1: Check "Problème résolu ?"
-        if "Problème résolu ?" in df.columns:
-            df["solved"] = df["Problème résolu ?"].isin([1, "1", True, "True", "true"])
+        # if "Problème résolu ?" in df.columns:
+        #     df["solved"] = df["Problème résolu ?"].isin([1, "1", True, "True", "true"])
 
         # ✅ Case 2: Check "solution" column if it exists and not empty
         if "*QR* Solution QR" in df.columns:
