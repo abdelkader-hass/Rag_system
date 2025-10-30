@@ -1,6 +1,6 @@
 import streamlit as st
 import os,json,requests,boto3,time
-from static_vars import SETTINGS_PATH,FEEDBACK_PATH,MESSAGE_ANSWER,Answerformat,system_prompt,LOCAL_IMG_DIR
+from static_vars import SETTINGS_PATH,FEEDBACK_PATH,MESSAGE_ANSWER,Answerformat,AnswerformatQA,system_prompt,LOCAL_IMG_DIR
 import boto3
 import requests
 from litellm import completion
@@ -282,14 +282,26 @@ def get_context_server(question_input,selected_device,use_categories):
         return "No context","No context"
 
 
-def run_llm(user_message="no input"):
+def run_llm(user_message="no input",format_answer=None):
     response = litellm.completion(
         model="bedrock/anthropic.claude-3-sonnet-20240229-v1:0",
         messages=[
             {"role": "user", "content": system_prompt},
             {"role": "assistant", "content": "now give me your question and the context"},
             {"role": "user", "content": user_message}
-        ],response_format=Answerformat
+        ],response_format=format_answer
+    )
+    result_json=json.loads(response.choices[0].message.content)
+    return result_json
+
+def run_llm_QA(user_message="no input",format_answer=None):
+    response = litellm.completion(
+        model="bedrock/anthropic.claude-3-sonnet-20240229-v1:0",
+        messages=[
+            {"role": "user", "content": system_prompt},
+            {"role": "assistant", "content": "now give me your new issue and the historical issues"},
+            {"role": "user", "content": user_message}
+        ],response_format=format_answer
     )
     result_json=json.loads(response.choices[0].message.content)
     return result_json
@@ -305,11 +317,11 @@ def answer_from_docs(question_input,context_text,is_used_categories):
     Please provide an answer based only on the context above."""
 
     # Call Bedrock via LiteLLM
-    result_json=run_llm(user_message)
+    result_json=run_llm(user_message,Answerformat)
     answer = result_json['answer']
     is_a_good_answer=result_json['is_a_good_answer']
     reason=result_json['reason']
-    print("result QA",result_json)
+    # print("result QA",result_json)
 
     if is_a_good_answer:
         try:
@@ -331,7 +343,7 @@ def answer_from_docs(question_input,context_text,is_used_categories):
             Please provide an answer based only on the context above."""
 
             # Call Bedrock via LiteLLM
-            result_json=run_llm(user_message)
+            result_json=run_llm(user_message,Answerformat)
             answer = result_json['answer']
             is_a_good_answer=result_json['is_a_good_answer']
             reason=result_json['reason']
@@ -358,36 +370,34 @@ def answer_from_QA(question_input,context_QA,context_text,is_used_categories):
 
 
     user_message = f"""
-    Please provide an answer based only on the context above. and make sure to keep images
+    Please analyse carefully and use only relevent historical issues
     
-    **Question: {question_input}
+    **new issue: {question_input}
     
     ------- 
-    **Context:
+    **historical issues:
     {context_QA}
 
     """
-
+    
     # Call Bedrock via LiteLLM
-    result_json=run_llm(user_message)
-
+    result_json=run_llm_QA(user_message,AnswerformatQA)
     answer = result_json['answer']
     is_a_good_answer=result_json['is_a_good_answer']
-    reason=result_json['reason']
-    print("result QA",result_json)
-    if  is_a_good_answer=="True":
-
-        try:
-            return answer
-        except Exception as e:
-            print("error chat_stream",str(e))
-            return "No answer found in knowledge base"
+    similaire_issues=result_json['similaire_issues']
+    # reason=result_json['reason']
+    # print("result QA",result_json)
+    # if  is_a_good_answer=="True":
+    try:
+        return answer,similaire_issues
+    except Exception as e:
+        print("error chat_stream",str(e))
+        return "No answer found in knowledge base",None
 
         # st.rerun()
-    else:
-        data=answer_from_docs(question_input,context_text,is_used_categories=is_used_categories)
-        return data
-
+    #docs part else:
+    #     data=answer_from_docs(question_input,context_text,is_used_categories=is_used_categories)
+    #     return data
 
 
 
@@ -536,35 +546,62 @@ try:
 except:
     st.markdown('<h1 class="main-title">🤖 QRQC AI Assistant</h1>', unsafe_allow_html=True)
     st.markdown('<p class="subtitle">Your intelligent assistant powered by advanced AI</p><hr class="gradient_cls">', unsafe_allow_html=True)
-    selected_device=st.selectbox("Select device ",["ALL"]+list(devices_data.keys()),index=0)
+    # selected_device=st.selectbox("Select device ",["ALL"]+list(devices_data.keys()),index=0)
+    selected_device=st.selectbox("Select device ",list(devices_data.keys()),index=0)
+
     chat_tab=st.container()
     chat_container=chat_tab.container()
 
     for msg in st.session_state.messsage:
-        list_parts=parse_content(str(msg[1]))
-        bool_download_image=False
-        with chat_container.chat_message(str(msg[0])):
-            cpt=0
-            for i in list_parts:
-                
-                if i[0]=="image":
-                    cpt+=1    
-                    print("image finded",cpt,i[1])
-                    try:
-                        image_path = os.path.join(LOCAL_IMG_DIR, i[1])
-                        print("image path",image_path)
-                        st.image(image_path)
-                        # st.image(r"D:\projects\langchain_chat\Rag_system\DB_Server\vol\documents\imgs/"+i[1])
-                        
-                    except:
+        if str(msg[0]) != "tickets":
+            list_parts=parse_content(str(msg[1]))
+            bool_download_image=False
+            with chat_container.chat_message(str(msg[0])):
+                cpt=0
+                for i in list_parts:
+                    
+                    if i[0]=="image":
+                        cpt+=1    
+                        print("image finded",cpt,i[1])
                         try:
-                            path=download_image(i[1])
-                            if path:
-                                bool_download_image=True
+                            image_path = os.path.join(LOCAL_IMG_DIR, i[1])
+                            print("image path",image_path)
+                            st.image(image_path)
+                            # st.image(r"D:\projects\langchain_chat\Rag_system\DB_Server\vol\documents\imgs/"+i[1])
+                            
                         except:
-                            st.write(i[1])
-                else:
-                    st.write(i[1])
+                            try:
+                                path=download_image(i[1])
+                                if path:
+                                    bool_download_image=True
+                            except:
+                                st.write(i[1])
+                    else:
+                        st.write(i[1])
+        elif msg[1]:
+            tickets=msg[1]
+            with chat_container.chat_message("assistant"):
+                for i in range(0, len(tickets), 3):
+                    row_tickets = tickets[i:i+3]
+                    cols = st.columns(3)
+
+                    for col, ticket in zip(cols, row_tickets):
+                        with col:
+                            with st.container():
+                                ticket_id=ticket.get("id",0)
+                                st.markdown(
+                                    f"""
+                                    <div class="ticket-card">
+                                        <div class="ticket-title">Ticket #{ticket.get("id", "N/A")}</div>
+                                        <div class="ticket-field"><b>Issue:</b> {ticket.get("issue", "N/A")}</div>
+                                        <div class="ticket-field"><b>Why similar:</b> {ticket.get("why_is_similaire", "N/A")}</div>
+                                        <div class="ticket-link"><b>🔗 <a href="http://hfrredmine.jy.fr/issues/{ticket_id}" target="_blank">View Ticket</a></b></div>
+                                    </div>
+                                    """,
+                                    unsafe_allow_html=True
+                                )
+
+            
     if bool_download_image:
         st.rerun()
     user_message = st.chat_input(placeholder="💬 Type your message here...")
@@ -585,43 +622,51 @@ except:
                 print("use questions first")
 
                 try:
-                    answer=answer_from_QA(question_input=question_input,context_QA=context_QA,context_text=context_text,is_used_categories=use_categories)
+                    answer,similaire_issues=answer_from_QA(question_input=question_input,context_QA=context_QA,context_text=context_text,is_used_categories=use_categories)
+                    
+                    # Grid: 3 tickets per row
+                    tickets=similaire_issues
+
                     final_answer=chat_container.chat_message("assistant").markdown(answer)
+                    st.session_state.messsage.append(("tickets",tickets))
                     st.session_state.messsage.append(("assistant",str(answer)))
                 except Exception as e:
                     error_msg = f"⚠️ Error generating answer: {str(e)}"
                     print(error_msg)
                     st.session_state.messsage.append(("assistant","No answer found in knowledge base."))
             st.rerun()
-        elif context_text.strip():
+
+        # docs part
+        # elif context_text.strip():
                 
-                print("use docs directly")
-                already_answer=True
-                with st.spinner("Generating answer..."):
-                    try:
-                        answer=answer_from_docs(question_input=question_input,context_text=context_text,is_used_categories=use_categories)
-                        final_answer=chat_container.chat_message("assistant").markdown(answer)
-                        st.session_state.messsage.append(("assistant",str(answer)))
-                    except Exception as e:
-                        error_msg = f"⚠️ Error generating answer: {str(e)}"
-                        print(error_msg)
-                        st.session_state.messsage.append(("assistant","No answer found in knowledge base."))
+        #         print("use docs directly")
+        #         already_answer=True
+        #         with st.spinner("Generating answer..."):
+        #             try:
+        #                 answer=answer_from_docs(question_input=question_input,context_text=context_text,is_used_categories=use_categories)
+        #                 final_answer=chat_container.chat_message("assistant").markdown(answer)
+        #                 st.session_state.messsage.append(("assistant",str(answer)))
+        #             except Exception as e:
+        #                 error_msg = f"⚠️ Error generating answer: {str(e)}"
+        #                 print(error_msg)
+        #                 st.session_state.messsage.append(("assistant","No answer found in knowledge base."))
 
-        if not context_text.strip() and use_categories=="True" and not already_answer:
-            # search in whole document
-            print("search in whole document this category is empty")
-            context_QA,context_text=get_context_server(user_message,selected_device,"False")
+        #docs part
+        #  if not context_text.strip() and use_categories=="True" and not already_answer:
+        #     # search in whole document
+        #     print("search in whole document this category is empty")
+        #     context_QA,context_text=get_context_server(user_message,selected_device,"False")
 
-            if context_text.strip():
-                with st.spinner("Generating answer..."):
-                    try:
-                        answer=answer_from_docs(question_input=question_input,context_text=context_text,is_used_categories=use_categories)
-                        final_answer=chat_container.chat_message("assistant").markdown(answer)
-                        st.session_state.messsage.append(("assistant",str(answer)))
-                    except Exception as e:
-                        error_msg = f"⚠️ Error generating answer: {str(e)}"
-                        print(error_msg)
-                        st.session_state.messsage.append(("assistant","No answer found in knowledge base."))
+        #     if context_text.strip():
+        #         with st.spinner("Generating answer..."):
+        #             try:
+        #                 answer=answer_from_docs(question_input=question_input,context_text=context_text,is_used_categories=use_categories)
+        #                 final_answer=chat_container.chat_message("assistant").markdown(answer)
+        #                 st.session_state.messsage.append(("assistant",str(answer)))
+        #             except Exception as e:
+        #                 error_msg = f"⚠️ Error generating answer: {str(e)}"
+        #                 print(error_msg)
+        #                 st.session_state.messsage.append(("assistant","No answer found in knowledge base."))
 
 
             st.rerun()

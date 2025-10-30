@@ -5,21 +5,29 @@ tickets with notes 51415 / 51388
 get ticket workflow to script simple
 filter csv (delete question without answer)
 convert then to csv question answer and use llm to correct then answer
-
 add button to send QA file to bd
-
-
-
-
-
-
-
 test get context see similaire and show context
-
 change view if similaire question ticket show list of similaire tickets(with button to view ticket in redmine) and short answer based of the retieved tickets 
 
 
+----
+delete all data in neo4j MATCH (n)
+DETACH DELETE n;
+
+
+--example question raman 
+Le remote du laser clignote lorsque je souhaite mettre en route ce dernier.
+
+
+
+
+
+------
+
 avatar: changer la langue de la présentation
 
+
+
+----------------
 delete ! from generated text
 add question from chunks

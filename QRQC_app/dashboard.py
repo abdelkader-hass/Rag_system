@@ -94,7 +94,7 @@ else:
             st.dataframe(df.head(), width='stretch')
         with tab2:
             st.dataframe(df.tail(), width='stretch')
-        answer_cols = ["notes", "QR PROD", "*QR* Solution QR"]
+        answer_cols = ["ticket_id","notes", "QR PROD", "*QR* Solution QR"]
         with tab3:
             df2=df.copy(True)
             # Check which of them actually exist in df
@@ -107,7 +107,7 @@ else:
 
             # Create the 'question' column
             df["question"] = df.apply(
-                lambda row: f"ticket_id : {row['ticket_id']} -----\n{row['QUOI ?']}",
+                lambda row: f"-----\n{row['QUOI ?']}",
                 axis=1
             )
 
@@ -129,7 +129,7 @@ else:
             df.reset_index(drop=True, inplace=True)
             # Keep only relevant columns
             output_df = df[["question", "answer"]]
-            output_df=output_df.head()
+            # output_df=output_df.head()
 
             # Print results
             if st.button("Add question to db"):
